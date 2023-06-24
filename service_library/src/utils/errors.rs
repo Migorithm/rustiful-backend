@@ -10,6 +10,7 @@ pub enum ApplicationError {
     NotFound,
     InvalidURL,
     TransactionError,
+    ParsingError,
     StopSentinel,
 }
 
@@ -25,6 +26,7 @@ impl Display for ApplicationError {
             ApplicationError::InvalidURL => write!(f, "InvalidURL"),
             ApplicationError::TransactionError => write!(f, "TransactionError"),
             ApplicationError::StopSentinel => write!(f, "StopSentinel"),
+            ApplicationError::ParsingError => write!(f, "ParsingError"),
         }
     }
 }

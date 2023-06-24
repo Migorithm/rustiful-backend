@@ -1,6 +1,10 @@
 use crate::{
     adapters::database::AtomicConnection,
-    domain::{auth::events::AuthEvent, board::events::BoardEvent, commands::ApplicationCommand},
+    domain::{
+        auth::events::AuthEvent,
+        board::events::BoardEvent,
+        commands::{ApplicationCommand, ServiceResponse},
+    },
     utils::{ApplicationError, ApplicationResult},
 };
 
@@ -50,7 +54,7 @@ impl MessageBus {
         &mut self,
         message: Box<dyn Any + Send + Sync>,
         connection: AtomicConnection,
-    ) -> ApplicationResult<VecDeque<String>> {
+    ) -> ApplicationResult<VecDeque<ServiceResponse>> {
         //TODO event generator
         let uow = UnitOfWork::new(connection.clone());
 
@@ -96,10 +100,10 @@ impl MessageBus {
         &mut self,
         command: ApplicationCommand,
         uow: Arc<Mutex<UnitOfWork>>,
-    ) -> ApplicationResult<String> {
+    ) -> ApplicationResult<ServiceResponse> {
         let handler = &self.command_handlers;
 
-        let fut: Future<String> = handler(command, uow);
+        let fut: Future<ServiceResponse> = handler(command, uow);
         Ok(fut.await.expect("Error Occurred While Handling Command!"))
     }
 
@@ -183,7 +187,7 @@ pub mod test_messagebus {
                 let res = res_queue
                     .pop_front()
                     .expect("There Must Be A Result String!");
-                println!("{}", res)
+                println!("{:?}", res)
             }
             Err(err) => {
                 eprintln!("{}", err);

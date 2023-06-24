@@ -118,7 +118,7 @@ mod test_outbox {
             }
             Ok(id) => '_test: {
                 let uow = UnitOfWork::new(connection.clone());
-                if let Err(err) = uow.lock().await.boards.get(&id).await {
+                if let Err(err) = uow.lock().await.boards.get(&id.to_str()).await {
                     panic!("Fetching newly created object failed! : {}", err);
                 };
             }

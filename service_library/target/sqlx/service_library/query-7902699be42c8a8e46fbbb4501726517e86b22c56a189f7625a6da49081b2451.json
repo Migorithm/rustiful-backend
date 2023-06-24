@@ -1,14 +1,51 @@
 {
-  "query": "UPDATE community_comment SET \n                    content =$1\n                WHERE id = $2",
+  "query": "SELECT * FROM service_outbox WHERE processed = $1",
   "describe": {
-    "columns": [],
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "aggregate_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "topic",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "state",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "processed",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "create_dt",
+        "type_info": "Timestamptz"
+      }
+    ],
     "parameters": {
       "Left": [
-        "Text",
-        "Uuid"
+        "Bool"
       ]
     },
-    "nullable": []
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
   },
-  "hash": "cf7b57717d3b9ce1c60faa65e677080923896fa1faada1390603519dbe0266c3"
+  "hash": "a9791df473081d01c3f410df62d398537919827dc9c0b4a5029c1be447a20006"
 }

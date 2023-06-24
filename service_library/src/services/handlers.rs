@@ -4,6 +4,7 @@ use crate::domain::auth::events::AuthEvent;
 use crate::domain::board::events::BoardEvent;
 use crate::domain::builder::{Buildable, Builder};
 
+use crate::domain::commands::ServiceResponse;
 use crate::{
     adapters::repository::TRepository,
     domain::{board::BoardAggregate, commands::ApplicationCommand},
@@ -17,13 +18,13 @@ use super::unit_of_work::UnitOfWork;
 pub type Future<T> = Pin<Box<dyn futures::Future<Output = ApplicationResult<T>> + Send>>;
 
 pub trait Handler {
-    fn execute(cmd: ApplicationCommand, uow: Arc<Mutex<UnitOfWork>>) -> Future<String>;
+    fn execute(cmd: ApplicationCommand, uow: Arc<Mutex<UnitOfWork>>) -> Future<ServiceResponse>;
 }
 
 pub struct ServiceHandler;
 
 impl Handler for ServiceHandler {
-    fn execute(cmd: ApplicationCommand, uow: Arc<Mutex<UnitOfWork>>) -> Future<String> {
+    fn execute(cmd: ApplicationCommand, uow: Arc<Mutex<UnitOfWork>>) -> Future<ServiceResponse> {
         Box::pin(async move {
             let mut uow = uow.lock().await;
             uow.begin().await;
@@ -55,12 +56,12 @@ impl Handler for ServiceHandler {
                 }
             };
             uow.commit().await?;
-            Ok(res)
+            Ok(res.into())
         })
     }
 }
 
-pub type CommandHandler = fn(ApplicationCommand, Arc<Mutex<UnitOfWork>>) -> Future<String>;
+pub type CommandHandler = fn(ApplicationCommand, Arc<Mutex<UnitOfWork>>) -> Future<ServiceResponse>;
 pub type EventHandler<T> = fn(T, Arc<Mutex<UnitOfWork>>) -> Future<()>;
 
 pub(crate) static BOARD_CREATED_EVENT_HANDLERS: [EventHandler<BoardEvent>; 0] = [];

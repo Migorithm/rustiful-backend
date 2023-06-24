@@ -30,6 +30,30 @@ pub enum ApplicationCommand {
     },
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub enum ServiceResponse {
+    String(String),
+}
+
+impl ServiceResponse {
+    pub fn to_str(&self) -> String {
+        match self {
+            Self::String(var) => var.to_owned(),
+        }
+    }
+}
+
+impl From<String> for ServiceResponse {
+    fn from(value: String) -> Self {
+        ServiceResponse::String(value)
+    }
+}
+impl From<Uuid> for ServiceResponse {
+    fn from(value: Uuid) -> Self {
+        ServiceResponse::String(value.to_string())
+    }
+}
+
 #[test]
 fn test_serde() {
     use serde_json;
