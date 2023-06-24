@@ -5,6 +5,8 @@ mod schemas;
 use axum::Router;
 use routes::board_routers;
 use service_library::adapters::database::{AtomicConnection, Connection};
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 
 #[tokio::main]
 async fn main() {
@@ -17,8 +19,29 @@ async fn main() {
         .expect("Connection Creation Failed!");
 
     let board_routes = board_routers();
+    #[derive(OpenApi)]
+    #[openapi(
+    paths(
+        routes::create_board,
+        routes::edit_board,
+        routes::add_comment,
+        routes::edit_comment
+    ),
+    components(
+        schemas(
+            schemas::CreateBoard,
+            schemas::EditBoard,
+            schemas::AddComment,
+            schemas::EditComment)
+    ),
+    tags(
+        (name= "Rustiful Backend", description="This is for swagger integration")
+    )
+    )]
+    pub struct ApiDoc;
 
     let app = Router::new()
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .nest("/boards", board_routes)
         .with_state(conn.clone());
 

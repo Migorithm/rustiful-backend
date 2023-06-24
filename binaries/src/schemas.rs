@@ -2,9 +2,10 @@ use std::any::Any;
 
 use serde::Deserialize;
 use service_library::domain::{board::entity::BoardState, commands::ApplicationCommand, AnyTrait};
+use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateBoard {
     author: Uuid,
     title: String,
@@ -12,7 +13,7 @@ pub struct CreateBoard {
     state: BoardState,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct EditBoard {
     id: Uuid,
     title: Option<String>,
@@ -20,14 +21,14 @@ pub struct EditBoard {
     state: Option<BoardState>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct AddComment {
     board_id: Uuid,
     author: Uuid,
     content: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct EditComment {
     board_id: Uuid,
     id: Uuid,

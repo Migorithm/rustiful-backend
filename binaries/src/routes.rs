@@ -5,12 +5,12 @@ use axum::{extract::State, Json};
 use service_library::{adapters::database::AtomicConnection, services::messagebus::MessageBus};
 
 use crate::error::{Exception, WebResponse};
-use crate::schemas::{self, ToCommand};
+use crate::schemas::{ToCommand, *};
 
-#[axum_macros::debug_handler]
+#[utoipa::path( post,  path = "/boards", request_body=CreateBoard)]
 pub async fn create_board(
     State(connection): State<AtomicConnection>,
-    Json(cmd): Json<schemas::CreateBoard>,
+    Json(cmd): Json<CreateBoard>,
 ) -> Result<WebResponse, Exception> {
     let mut bus = MessageBus::new(None);
     let mut res = bus
@@ -21,10 +21,10 @@ pub async fn create_board(
     Ok(WebResponse(res.pop_front().unwrap()))
 }
 
-#[axum_macros::debug_handler]
+#[utoipa::path(patch, path = "/boards",request_body=EditBoard)]
 pub async fn edit_board(
     State(connection): State<AtomicConnection>,
-    Json(cmd): Json<schemas::EditBoard>,
+    Json(cmd): Json<EditBoard>,
 ) -> Result<WebResponse, Exception> {
     let mut bus = MessageBus::new(None);
     let mut res = bus
@@ -34,10 +34,11 @@ pub async fn edit_board(
 
     Ok(WebResponse(res.pop_front().unwrap()))
 }
-#[axum_macros::debug_handler]
+
+#[utoipa::path(post, path = "/boards/comments",request_body=AddComment)]
 pub async fn add_comment(
     State(connection): State<AtomicConnection>,
-    Json(cmd): Json<schemas::AddComment>,
+    Json(cmd): Json<AddComment>,
 ) -> Result<WebResponse, Exception> {
     let mut bus = MessageBus::new(None);
     let mut res = bus
@@ -48,10 +49,10 @@ pub async fn add_comment(
     Ok(WebResponse(res.pop_front().unwrap()))
 }
 
-#[axum_macros::debug_handler]
+#[utoipa::path(patch, path = "/boards/comments",request_body=EditComment)]
 pub async fn edit_comment(
     State(connection): State<AtomicConnection>,
-    Json(cmd): Json<schemas::EditComment>,
+    Json(cmd): Json<EditComment>,
 ) -> Result<WebResponse, Exception> {
     let mut bus = MessageBus::new(None);
     let mut res = bus

@@ -15,5 +15,7 @@ axum = {version="*"}
 axum-macros = {version="*"}
 serde = {version="*",features=["derive"]}
 serde_json = "*"
+utoipa = {version="*",features=["axum_extras","uuid"]}
+utoipa-swagger-ui = { version="*" , features=["axum"] }
 tower = { version = "0.4", features = ["util", "timeout"] }
 tower-http = { version = "0.4.0", features = ["add-extension", "trace"] }
