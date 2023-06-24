@@ -1,0 +1,176 @@
+use std::{any::Any, collections::VecDeque, mem, sync::Arc};
+
+use tokio::sync::Mutex;
+
+use crate::{
+    adapters::{
+        database::AtomicConnection,
+        outbox::Outbox,
+        repository::{Repository, TRepository},
+    },
+    domain::{
+        auth::{events::AuthEvent, AuthAggregate},
+        board::{events::BoardEvent, BoardAggregate},
+        AnyTrait,
+    },
+    utils::ApplicationResult,
+};
+
+pub struct UnitOfWork {
+    pub connection: AtomicConnection,
+    pub boards: Repository<BoardAggregate, BoardEvent>,
+    pub auths: Repository<AuthAggregate, AuthEvent>,
+}
+
+impl UnitOfWork {
+    pub fn new(connection: AtomicConnection) -> Arc<Mutex<Self>> {
+        Arc::new(Mutex::new(Self {
+            connection: connection.clone(),
+            boards: Repository::new(connection.clone()),
+            auths: Repository::new(connection),
+        }))
+    }
+
+    pub async fn begin(&mut self) {
+        if let Err(err) = self.boards.connection().write().await.begin().await {
+            eprintln!("Transaction Error! : {}", err);
+        }
+    }
+
+    pub async fn commit(&mut self) -> ApplicationResult<()> {
+        self._save_outboxes(self.connection.clone()).await?;
+        self.connection.write().await.commit().await?;
+        Ok(())
+    }
+
+    pub async fn rollback(&mut self) -> ApplicationResult<()> {
+        self.boards.connection().write().await.rollback().await?;
+        Ok(())
+    }
+    pub async fn _save_outboxes(&self, connection: AtomicConnection) -> ApplicationResult<()> {
+        Outbox::add(
+            connection,
+            self.boards
+                ._collect_outbox()
+                .chain(self.auths._collect_outbox())
+                .collect::<Vec<_>>(),
+        )
+        .await?;
+
+        Ok(())
+    }
+    pub fn _collect_events(&mut self) -> VecDeque<Box<dyn Any + Send + Sync>> {
+        let mut events: VecDeque<Box<dyn Any + Send + Sync>> =
+            VecDeque::with_capacity(self.boards.events.len() + self.auths.events.len());
+        mem::take(&mut self.boards.events)
+            .into_iter()
+            .for_each(|e| events.push_back(e.as_any()));
+
+        mem::take(&mut self.auths.events)
+            .into_iter()
+            .for_each(|e| events.push_back(e.as_any()));
+        events
+    }
+}
+
+//TODO Using UOW, transaction handling
+#[cfg(test)]
+mod test_unit_of_work {
+    use crate::adapters::database::Connection;
+    use crate::adapters::repository::TRepository;
+    use crate::domain::board::{
+        entity::{Board, BoardState},
+        BoardAggregate,
+    };
+    use crate::domain::builder::{Buildable, Builder};
+    use crate::services::unit_of_work::UnitOfWork;
+    use uuid::Uuid;
+
+    #[tokio::test]
+    async fn test_unit_of_work() {
+        let connection = Connection::new().await.unwrap();
+        let uow = UnitOfWork::new(connection);
+
+        '_transaction_block: {
+            let builder = BoardAggregate::builder();
+            let boardaggregate = builder
+                .take_board(Board::new(
+                    Uuid::new_v4(),
+                    "Title!",
+                    "Content!",
+                    BoardState::Published,
+                ))
+                .build();
+            let id: String = boardaggregate.board.id.to_string();
+            let mut uow = uow.lock().await;
+            uow.begin().await;
+            uow.boards.add(boardaggregate).await.unwrap();
+            uow.commit().await.unwrap();
+
+            '_test_block: {
+                if let Err(err) = uow.boards.get(&id).await {
+                    panic!("Fetch Error!:{}", err)
+                };
+            }
+        }
+
+        '_transaction_block: {
+            let builder = BoardAggregate::builder();
+            let boardaggregate = builder
+                .take_board(Board::new(
+                    Uuid::new_v4(),
+                    "Title!",
+                    "Content!",
+                    BoardState::Published,
+                ))
+                .build();
+            let id: String = boardaggregate.board.id.to_string();
+            let mut uow = uow.lock().await;
+            uow.begin().await;
+            uow.boards.add(boardaggregate).await.unwrap();
+            uow.rollback().await.unwrap();
+
+            '_test_block: {
+                if let Ok(_val) = uow.boards.get(&id).await {
+                    panic!("Shouldn't be able to fetch after rollback!!")
+                };
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_unit_of_work_event_collection() {
+        let connection = Connection::new().await.unwrap();
+        let uow = UnitOfWork::new(connection);
+        '_transaction_block: {
+            let builder = BoardAggregate::builder();
+            let mut boardaggregate = builder.build();
+
+            // The following method on aggregate raises an event
+            boardaggregate.create_board(
+                Uuid::new_v4(),
+                "Title!".into(),
+                "Content".into(),
+                BoardState::Published,
+            );
+            let id: String = boardaggregate.board.id.to_string();
+
+            let mut uow = uow.lock().await;
+            uow.begin().await;
+            uow.boards.add(boardaggregate).await.unwrap();
+            uow.commit().await.unwrap();
+
+            '_test_block: {
+                if let Err(err) = uow.boards.get(&id).await {
+                    panic!("Fetch Error!:{}", err)
+                };
+                let vec = uow._collect_events();
+                assert_eq!(vec.len(), 1);
+
+                // When you try it again, it should be empty
+                let vec = uow._collect_events();
+                assert_eq!(vec.len(), 0)
+            }
+        }
+    }
+}

@@ -1,0 +1,17 @@
+[package]
+name="service_library"
+version="0.0.1"
+edition = "2021"
+
+[dependencies]
+uuid = { version = "1.3.3", features = ["v4", "fast-rng", "macro-diagnostics","serde" ]}
+chrono = "*"
+time = "*"
+async-trait = {version="*"}
+sqlx = { version = "*", features = [ "runtime-tokio-rustls", "migrate", "postgres","uuid","chrono","offline"] }
+tokio = { version = "1.1.1", features = ["full"] }
+futures ={version="*"}
+dotenv={version="*"}
+serde = {version="*",features=["derive"]}
+serde_json = "*"
+bcrypt = "*"

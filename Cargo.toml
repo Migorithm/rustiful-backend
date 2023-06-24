@@ -1,0 +1,30 @@
+[package]
+name = "rustiful"
+version = "0.1.0"
+edition = "2021"
+
+
+[workspace]
+members=["service_library","binaries"]
+
+[lib]
+name ="service_library"
+path = "service_library/src/lib.rs"
+
+[[bin]]
+name="binaries"
+path = "binaries/src/main.rs"
+
+
+[dependencies]
+uuid = { version = "1.3.3", features = ["v4", "fast-rng", "macro-diagnostics","serde" ]}
+chrono = "*"
+time = "*"
+async-trait = {version="*"}
+sqlx = { version = "*", features = [ "runtime-tokio-rustls", "migrate", "postgres","uuid","chrono","offline"] }
+tokio = { version = "1.1.1", features = ["full"] }
+futures ={version="*"}
+dotenv={version="*"}
+serde = {version="*",features=["derive"]}
+serde_json = "*"
+bcrypt = "*"
