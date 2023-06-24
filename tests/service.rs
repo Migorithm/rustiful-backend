@@ -9,7 +9,7 @@ pub mod service_tests {
     use service_library::adapters::repository::TRepository;
 
     use service_library::domain::board::entity::BoardState;
-    use service_library::domain::commands::{ApplicationCommand, Response};
+    use service_library::domain::commands::ApplicationCommand;
     use service_library::services::handlers::{Handler, ServiceHandler};
     use service_library::services::unit_of_work::UnitOfWork;
     use uuid::Uuid;
@@ -68,15 +68,10 @@ pub mod service_tests {
                     panic!("Service Handling Failed! {}", err)
                 }
                 Ok(id) => {
-                    if let Response::String(val) = id {
-                        let uow = UnitOfWork::new(connection.clone());
-                        if let Ok(board_aggregate) = uow.lock().await.boards.get(&val).await {
-                            assert_eq!(
-                                board_aggregate.board.content,
-                                "Changed to this".to_string()
-                            );
-                        };
-                    }
+                    let uow = UnitOfWork::new(connection.clone());
+                    if let Ok(board_aggregate) = uow.lock().await.boards.get(&id.to_str()).await {
+                        assert_eq!(board_aggregate.board.content, "Changed to this".to_string());
+                    };
                 }
             }
         }
