@@ -12,6 +12,7 @@ use super::{
     unit_of_work::UnitOfWork,
 };
 
+#[derive(Clone)]
 pub struct MessageBus {
     command_handlers: CommandHandler,
 
@@ -47,7 +48,7 @@ impl MessageBus {
 
     pub async fn handle(
         &mut self,
-        message: Box<dyn Any>,
+        message: Box<dyn Any + Send + Sync>,
         connection: AtomicConnection,
     ) -> ApplicationResult<VecDeque<String>> {
         //TODO event generator
@@ -104,7 +105,7 @@ impl MessageBus {
 
     async fn handle_event(
         &mut self,
-        msg: Box<dyn Any>,
+        msg: Box<dyn Any + Send + Sync>,
         uow: Arc<Mutex<UnitOfWork>>,
     ) -> ApplicationResult<()> {
         if msg.is::<BoardEvent>() {

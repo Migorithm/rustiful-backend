@@ -34,7 +34,7 @@ impl Outbox {
             create_dt: Default::default(),
         }
     }
-    pub fn convert_event(&mut self) -> Box<dyn Any> {
+    pub fn convert_event(&mut self) -> Box<dyn Any + Send + Sync> {
         match self.topic.as_str() {
             board::events::TOPIC => serde_json::from_str::<BoardEvent>(self.state.as_str())
                 .unwrap()

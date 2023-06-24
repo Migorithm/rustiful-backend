@@ -1,4 +1,3 @@
-
 mod helpers;
 
 #[cfg(test)]
@@ -11,7 +10,7 @@ mod repository_tests {
     use service_library::adapters::repository::{Repository, TRepository};
 
     use service_library::domain::board::entity::BoardState;
-    
+
     use service_library::domain::board::events::BoardEvent;
     use service_library::domain::board::BoardAggregate;
     use service_library::domain::builder::{Buildable, Builder};

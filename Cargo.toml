@@ -28,3 +28,9 @@ dotenv={version="*"}
 serde = {version="*",features=["derive"]}
 serde_json = "*"
 bcrypt = "*"
+axum = {version="*"}
+axum-macros = {version="*"}
+tower = { version = "0.4", features = ["util", "timeout"] }
+tower-http = { version = "0.4.0", features = ["add-extension", "trace"] }
+
+

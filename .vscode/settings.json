@@ -1,5 +1,7 @@
 {
     "rust-analyzer.linkedProjects": [
-        "./binaries/Cargo.toml"
-    ]
+        "./binaries/Cargo.toml",
+    
+    ],
+    "rust-analyzer.showUnlinkedFileNotification": false
 }
