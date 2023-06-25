@@ -19,13 +19,14 @@ jobs:
     
     - name: Start containers
       run: |
+        cargo install sqlx-cli --no-default-features --features native-tls,postgres
         docker-compose -f "docker-compose.yml" up -d --build
         docker-compose ps
-        
+        make upgrade 
     - name: Build
       run: |
         cargo build
-        make upgrade 
+
         
     - name: Lint tests
       run: |
