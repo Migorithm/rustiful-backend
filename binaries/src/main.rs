@@ -8,7 +8,9 @@ use axum::{
 };
 use routes::board_routers;
 use service_library::adapters::database::{AtomicConnection, Connection};
-use tower_http::cors::CorsLayer;
+use tower_http::{cors::CorsLayer, trace::TraceLayer};
+
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -17,12 +19,7 @@ async fn main() {
     println!("Environment Variable Is Being Set...");
     dotenv::dotenv().expect("Unable to load environment variable!");
 
-    println!("Connections Are Being Pooled...");
-    let conn: AtomicConnection = Connection::new()
-        .await
-        .expect("Connection Creation Failed!");
-
-    let board_routes = board_routers();
+    // ! OpenAPI
     #[derive(OpenApi)]
     #[openapi(
     paths(
@@ -44,9 +41,27 @@ async fn main() {
     )]
     pub struct ApiDoc;
 
+    // ! Tracing
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                // axum logs rejections from built-in extractors with the `axum::rejection`
+                // target, at `TRACE` level. `axum::rejection=trace` enables showing those events
+                "tracing=debug,tower_http=debug,axum::rejection=trace".into()
+            }),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
+
+    // ! Connection
+    println!("Connections Are Being Pooled...");
+    let conn: AtomicConnection = Connection::new()
+        .await
+        .expect("Connection Creation Failed!");
+
     let app = Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
-        .nest("/boards", board_routes)
+        .nest("/boards", board_routers())
         .with_state(conn.clone())
         .layer(
             CorsLayer::new()
@@ -58,7 +73,8 @@ async fn main() {
                     Method::PUT,
                     Method::DELETE,
                 ]),
-        );
+        )
+        .layer(TraceLayer::new_for_http());
 
     println!("Binding...");
     axum::Server::bind(&"127.0.0.1:3000".parse().unwrap())
