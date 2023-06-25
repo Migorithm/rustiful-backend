@@ -21,7 +21,12 @@ jobs:
       run: |
         docker-compose -f "docker-compose.yml" up -d --build
         docker-compose ps
-        make upgrade    
+        
+    - name: Build
+      run: |
+        cargo build
+        make upgrade 
+        
     - name: Lint tests
       run: |
         cargo fmt
