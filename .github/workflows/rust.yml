@@ -70,9 +70,9 @@ jobs:
 
     - name: Start containers
       run: |
-        cargo install sqlx-cli --no-default-features --features native-tls,postgres
         docker-compose -f "docker-compose.yml" up -d --build
         docker-compose ps
+        cargo install sqlx-cli --no-default-features --features native-tls,postgres
         make upgrade 
         
     - name: Lint tests
