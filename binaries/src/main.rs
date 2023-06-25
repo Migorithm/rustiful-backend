@@ -2,9 +2,13 @@ mod error;
 mod routes;
 mod schemas;
 
-use axum::Router;
+use axum::{
+    http::{HeaderValue, Method},
+    Router,
+};
 use routes::board_routers;
 use service_library::adapters::database::{AtomicConnection, Connection};
+use tower_http::cors::CorsLayer;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -43,7 +47,18 @@ async fn main() {
     let app = Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .nest("/boards", board_routes)
-        .with_state(conn.clone());
+        .with_state(conn.clone())
+        .layer(
+            CorsLayer::new()
+                .allow_origin("http://localhost:3000".parse::<HeaderValue>().unwrap())
+                .allow_methods([
+                    Method::GET,
+                    Method::POST,
+                    Method::PATCH,
+                    Method::PUT,
+                    Method::DELETE,
+                ]),
+        );
 
     println!("Binding...");
     axum::Server::bind(&"127.0.0.1:3000".parse().unwrap())
