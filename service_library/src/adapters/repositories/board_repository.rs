@@ -1,5 +1,4 @@
 use crate::adapters::database::AtomicConnection;
-use crate::adapters::repository::{Connection, Repository, TRepository};
 
 use crate::domain::board::entity::{Board, BoardState, Comment, CommentState};
 use crate::domain::board::events::BoardEvent;
@@ -15,12 +14,14 @@ use std::str::FromStr;
 
 use uuid::Uuid;
 
+use super::{Repository, TRepository};
+
 #[async_trait]
 impl TRepository for Repository<BoardAggregate, BoardEvent> {
     type Aggregate = BoardAggregate;
     type Event = BoardEvent;
 
-    fn new(connection: Connection) -> Self {
+    fn new(connection: AtomicConnection) -> Self {
         Self {
             connection,
             _phantom: Default::default(),

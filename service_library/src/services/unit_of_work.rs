@@ -2,12 +2,9 @@ use std::{any::Any, collections::VecDeque, mem, sync::Arc};
 
 use tokio::sync::Mutex;
 
+use crate::adapters::repositories::{Repository, TRepository};
 use crate::{
-    adapters::{
-        database::AtomicConnection,
-        outbox::Outbox,
-        repository::{Repository, TRepository},
-    },
+    adapters::{database::AtomicConnection, outbox::Outbox},
     domain::{
         auth::{events::AuthEvent, AuthAggregate},
         board::{events::BoardEvent, BoardAggregate},
@@ -77,7 +74,7 @@ impl UnitOfWork {
 #[cfg(test)]
 mod test_unit_of_work {
     use crate::adapters::database::Connection;
-    use crate::adapters::repository::TRepository;
+    use crate::adapters::repositories::TRepository;
     use crate::domain::board::{
         entity::{Board, BoardState},
         BoardAggregate,

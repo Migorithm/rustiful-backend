@@ -7,7 +7,7 @@ mod repository_tests {
 
     use crate::helpers::functions;
 
-    use service_library::adapters::repository::{Repository, TRepository};
+    use service_library::adapters::repositories::{Repository, TRepository};
 
     use service_library::domain::board::entity::BoardState;
 

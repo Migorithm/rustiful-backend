@@ -1,12 +1,12 @@
 use std::{pin::Pin, sync::Arc};
 
+use crate::adapters::repositories::TRepository;
 use crate::domain::auth::events::AuthEvent;
 use crate::domain::board::events::BoardEvent;
 use crate::domain::builder::{Buildable, Builder};
 
 use crate::domain::commands::ServiceResponse;
 use crate::{
-    adapters::repository::TRepository,
     domain::{board::BoardAggregate, commands::ApplicationCommand},
     utils::ApplicationResult,
 };

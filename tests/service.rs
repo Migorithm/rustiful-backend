@@ -5,8 +5,8 @@ pub mod service_tests {
     use std::str::FromStr;
 
     use crate::helpers::functions::{self, *};
-    use service_library::adapters::database::Connection;
-    use service_library::adapters::repository::TRepository;
+
+    use service_library::adapters::repositories::TRepository;
 
     use service_library::domain::board::entity::BoardState;
     use service_library::domain::commands::ApplicationCommand;
@@ -16,6 +16,8 @@ pub mod service_tests {
 
     #[tokio::test]
     async fn test_create_board() {
+        let connection = functions::get_connection().await;
+
         let cmd = ApplicationCommand::CreateBoard {
             author: Uuid::new_v4(),
             title: "Title!".to_string(),
@@ -23,7 +25,6 @@ pub mod service_tests {
             state: BoardState::Published,
         };
 
-        let connection = functions::get_connection().await;
         let uow = UnitOfWork::new(connection.clone());
         match ServiceHandler::execute(cmd, uow.clone()).await {
             Err(err) => '_fail_case: {

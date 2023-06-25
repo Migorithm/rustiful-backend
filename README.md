@@ -44,6 +44,110 @@ pub trait Aggregate: Send + Sync {
 And each event that's raised after handling command is internally registerd.
  
 
+## Repository
+`Repository` is to keep persistence concerns outside of the domain model.<br>
+Its usability really shines in this project as I didn't use any ORM model.<br>
+If your *business logic* is entangled with the *query logic*, it easily gets messy.<br>
+You can use `Repository` pattern to steer clear of that situation.<br><br>
+
+In this project, `one repository for one aggregate` priciple is strictly observed.<br>
+So, every access to persistence layer is done through repository and its associated type, `Aggregate` as follows:
+```rust
+#[async_trait]
+pub trait TRepository {
+    type Aggregate: AsMut<Self::Aggregate>
+        + AsRef<Self::Aggregate>
+        + Aggregate<Event = Self::Event>
+        + Send
+        + Sync;
+    type Event: Message;
+...
+}
+```
+
+
+
+### Repository - query logic
+To insert, fetch and update aggregate, the following method must be implemented
+```rust
+pub trait TRepository {
+    ...
+
+    async fn add(
+        &mut self,
+        mut aggregate: impl AsMut<Self::Aggregate> + Send + Sync,
+    ) -> Result<String, ApplicationError> {
+        self._collect_events(aggregate.as_mut());
+        self._add(aggregate.as_mut()).await
+    }
+
+    async fn _add(
+        &mut self,
+        aggregate: impl AsRef<Self::Aggregate> + Send + Sync,
+    ) -> Result<String, ApplicationError>;
+
+    async fn get(&mut self, aggregate_id: &str) -> Result<Self::Aggregate, ApplicationError>;
+
+    async fn update(
+        &mut self,
+        mut aggregate: impl AsMut<Self::Aggregate> + Send + Sync,
+    ) -> Result<(), ApplicationError> {
+        self._collect_events(aggregate.as_mut());
+        self._update(aggregate.as_mut()).await
+    }
+
+    async fn _update(
+        &mut self,
+        aggregate: impl AsRef<Self::Aggregate> + Send + Sync,
+    ) -> Result<(), ApplicationError>;
+}
+```
+As you can see, `_collect_events` event hook is followed by the query operations such as `_add` and `_update`.<br>
+This is to collect events that are raised in domain logic so it can trigger the subsequent event handling logics.<br>
+
+### Repository - event handling
+```rust
+pub trait TRepository {
+    ...
+
+
+    fn get_events(&self) -> &VecDeque<Self::Event>;
+    fn set_events(&mut self, events: VecDeque<Self::Event>);
+
+    fn _collect_events(&mut self, mut aggregate: impl AsMut<Self::Aggregate> + Send + Sync) {
+        self.set_events(aggregate.as_mut().collect_events())
+    }
+    
+}
+```
+Here, we have `get_events` and `set_events` methods that must be implemeted on any concrete repository that implements `TRepository` trait. If then, `_collect_event` is called on every `add` and `update` operation, as those operations are what requires data changes.<br><br>
+
+Notice, however, that these events are for internal handling that happens to be side effects of command handling but not necessarily as important as command call. But what if the following event is as important so you can't just ignore the failure? Then we need to take more strigent data saving mechanism. The choice in this project is outbox pattern.
+
+### Repository - outbox
+```rust
+pub trait TRepository {
+    ...
+
+  fn _collect_outbox(&self) -> Box<dyn Iterator<Item = Outbox> + '_ + Send> {
+        Box::new(
+            self.get_events()
+                .iter()
+                .filter(|e| e.externally_notifiable())
+                .map(|e| e.outbox()),
+        )
+    }
+}
+
+```
+Okay, it simply loops through the result of `get_events` method and filter in the event that's *externally_notifiable* and convert it to `Outbox` type. We will cover that later.
+
+
+
+
+
+
+
 
 
 

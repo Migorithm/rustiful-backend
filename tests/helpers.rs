@@ -4,7 +4,7 @@ pub mod functions {
     use std::str::FromStr;
 
     use service_library::adapters::database::{AtomicConnection, Connection};
-    use service_library::adapters::repository::{Repository, TRepository};
+    use service_library::adapters::repositories::{Repository, TRepository};
 
     use service_library::domain::board::entity::{Board, BoardState, Comment};
     use service_library::domain::board::events::BoardEvent;

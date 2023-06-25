@@ -91,7 +91,7 @@ mod test_outbox {
     use uuid::Uuid;
 
     use crate::{
-        adapters::{database::Connection, outbox::Outbox, repository::TRepository},
+        adapters::{database::Connection, outbox::Outbox, repositories::TRepository},
         domain::{board::entity::BoardState, commands::ApplicationCommand},
         services::{
             handlers::{Handler, ServiceHandler},
