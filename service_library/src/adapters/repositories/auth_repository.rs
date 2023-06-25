@@ -1,7 +1,6 @@
 use std::collections::VecDeque;
 
 use crate::adapters::database::AtomicConnection;
-use crate::adapters::repository::{Connection, Repository, TRepository};
 
 use crate::domain::auth::AuthAggregate;
 
@@ -9,12 +8,14 @@ use crate::domain::auth::events::AuthEvent;
 use crate::utils::ApplicationError;
 use async_trait::async_trait;
 
+use super::{Repository, TRepository};
+
 #[async_trait]
 impl TRepository for Repository<AuthAggregate, AuthEvent> {
     type Aggregate = AuthAggregate;
     type Event = AuthEvent;
 
-    fn new(connection: Connection) -> Self {
+    fn new(connection: AtomicConnection) -> Self {
         Self {
             connection,
             _phantom: Default::default(),

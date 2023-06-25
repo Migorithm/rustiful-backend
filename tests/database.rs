@@ -5,7 +5,7 @@ pub mod database_tests {
 
     use crate::helpers::functions::*;
     use service_library::{
-        adapters::repository::{Repository, TRepository},
+        adapters::repositories::{Repository, TRepository},
         domain::board::{entity::BoardState, events::BoardEvent, BoardAggregate},
     };
 
