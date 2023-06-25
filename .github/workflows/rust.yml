@@ -11,7 +11,6 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
@@ -23,17 +22,12 @@ jobs:
         docker-compose -f "docker-compose.yml" up -d --build
         docker-compose ps
         make upgrade 
-    - name: Build
-      run: |
-        cargo build
-
         
     - name: Lint tests
       run: |
         cargo fmt
         cargo clippy
     
-
     - name: Run tests
       run: cargo test -- --test-threads 1 --nocapture
     
