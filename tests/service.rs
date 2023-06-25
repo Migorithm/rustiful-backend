@@ -4,7 +4,7 @@ pub mod service_tests {
 
     use std::str::FromStr;
 
-    use crate::helpers::functions::*;
+    use crate::helpers::functions::{self, *};
     use service_library::adapters::database::Connection;
     use service_library::adapters::repository::TRepository;
 
@@ -23,7 +23,7 @@ pub mod service_tests {
             state: BoardState::Published,
         };
 
-        let connection = Connection::new().await.unwrap();
+        let connection = functions::get_connection().await;
         let uow = UnitOfWork::new(connection.clone());
         match ServiceHandler::execute(cmd, uow.clone()).await {
             Err(err) => '_fail_case: {
@@ -41,7 +41,7 @@ pub mod service_tests {
 
     #[tokio::test]
     async fn test_edit_board() {
-        let connection = Connection::new().await.unwrap();
+        let connection = functions::get_connection().await;
         let id: String;
         let uow = UnitOfWork::new(connection.clone());
         '_preparation_block: {
@@ -80,7 +80,7 @@ pub mod service_tests {
 
     #[tokio::test]
     async fn test_add_comment() {
-        let connection = Connection::new().await.unwrap();
+        let connection = functions::get_connection().await;
         let id: String;
         let uow = UnitOfWork::new(connection.clone());
         '_preparation_block: {
