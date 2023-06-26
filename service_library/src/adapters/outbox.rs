@@ -14,7 +14,7 @@ use crate::{
 
 use super::database::AtomicConnection;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Outbox {
     id: Uuid,
     aggregate_id: String,
@@ -35,7 +35,7 @@ impl Outbox {
             create_dt: Default::default(),
         }
     }
-    pub fn convert_event(&mut self) -> Box<dyn Any + Send + Sync> {
+    pub fn convert_event(&self) -> Box<dyn Any + Send + Sync> {
         match self.topic.as_str() {
             board::events::TOPIC => serde_json::from_str::<BoardEvent>(self.state.as_str())
                 .unwrap()
@@ -89,70 +89,54 @@ impl Outbox {
 #[cfg(test)]
 mod test_outbox {
     use core::panic;
-    use std::pin::Pin;
 
-    use dotenv::dotenv;
-    use futures::Future;
     use uuid::Uuid;
 
+    use crate::utils::test_components::components::*;
     use crate::{
         adapters::{
             database::{AtomicConnection, Connection},
             outbox::Outbox,
             repositories::TRepository,
         },
-        domain::{board::entity::BoardState, commands::ApplicationCommand},
+        domain::{
+            board::{entity::BoardState, events::BoardEvent},
+            commands::ApplicationCommand,
+        },
         services::{
             handlers::{Handler, ServiceHandler},
             unit_of_work::UnitOfWork,
         },
     };
-    pub async fn get_connection() -> AtomicConnection {
-        dotenv().unwrap();
 
-        Connection::new().await.unwrap()
-    }
-    pub async fn tear_down() {
-        let connection = get_connection().await;
-        sqlx::query("TRUNCATE community_board, community_comment, auth_account, auth_token_stat,service_outbox")
-            .execute(&connection.read().await.pool)
-            .await
-            .unwrap();
-    }
+    async fn outbox_setup(connection: AtomicConnection) {
+        let cmd = ApplicationCommand::CreateBoard {
+            author: Uuid::new_v4(),
+            title: "Title!".to_string(),
+            content: "Content".to_string(),
+            state: BoardState::Published,
+        };
 
-    async fn run_test<T>(test: T) -> ()
-    where
-        T: FnOnce() -> Pin<Box<dyn Future<Output = ()>>>,
-    {
-        dotenv().unwrap();
-        test().await;
-        tear_down().await;
+        let uow = UnitOfWork::new(connection.clone());
+        match ServiceHandler::execute(cmd, uow.clone()).await {
+            Err(err) => '_fail_case: {
+                panic!("Service Handling Failed! {}", err)
+            }
+            Ok(id) => '_test: {
+                let uow = UnitOfWork::new(connection);
+                if let Err(err) = uow.lock().await.boards.get(&id.to_str()).await {
+                    panic!("Fetching newly created object failed! : {}", err);
+                };
+            }
+        }
     }
 
     #[tokio::test]
     async fn test_create_board_leaves_outbox() {
         run_test(|| {
             Box::pin(async {
-                let cmd = ApplicationCommand::CreateBoard {
-                    author: Uuid::new_v4(),
-                    title: "Title!".to_string(),
-                    content: "Content".to_string(),
-                    state: BoardState::Published,
-                };
-
                 let connection = Connection::new().await.unwrap();
-                let uow = UnitOfWork::new(connection.clone());
-                match ServiceHandler::execute(cmd, uow.clone()).await {
-                    Err(err) => '_fail_case: {
-                        panic!("Service Handling Failed! {}", err)
-                    }
-                    Ok(id) => '_test: {
-                        let uow = UnitOfWork::new(connection.clone());
-                        if let Err(err) = uow.lock().await.boards.get(&id.to_str()).await {
-                            panic!("Fetching newly created object failed! : {}", err);
-                        };
-                    }
-                }
+                outbox_setup(connection.clone()).await;
 
                 '_test_case: {
                     match Outbox::get(connection.clone()).await {
@@ -170,4 +154,55 @@ mod test_outbox {
         })
         .await;
     }
+
+    #[tokio::test]
+    async fn test_convert_event() {
+        run_test(|| {
+            Box::pin(async {
+                let connection = Connection::new().await.unwrap();
+                outbox_setup(connection.clone()).await;
+
+                '_test_case: {
+                    let vec_of_outbox = Outbox::get(connection.clone()).await.unwrap();
+
+                    assert_eq!(vec_of_outbox.len(), 1);
+                    let event = vec_of_outbox.get(0).unwrap().convert_event();
+                    assert!(event.is::<BoardEvent>());
+
+                    let converted = *event.downcast::<BoardEvent>().unwrap();
+                    match converted {
+                        BoardEvent::Created { .. } => {
+                            println!("Success!")
+                        }
+                        _ => {
+                            panic!("Failed!")
+                        }
+                    };
+                }
+            })
+        })
+        .await
+    }
+
+    // #[tokio::test]
+    // async fn test_outbox_event_handled_by_messagebus(){
+    //     let outbox_command_handler = [];
+
+    //     run_test(||{
+    //         Box::pin(async{
+    //             let connection = Connection::new().await.unwrap();
+    //             outbox_setup(connection.clone()).await;
+
+    //             '_test_case:{
+    //                 let mut bus = MessageBus::default();
+
+    //                 for e in Outbox::get(connection.clone()).await.unwrap(){
+    //                     bus.handle(e.convert_event(),connection.clone()).await;
+    //                 }
+
+    //             }
+
+    //         })
+    //     }).await;
+    // }
 }

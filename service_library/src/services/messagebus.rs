@@ -3,23 +3,25 @@ use crate::{
     domain::{
         auth::events::AuthEvent,
         board::events::BoardEvent,
-        commands::{ApplicationCommand, ServiceResponse},
+        commands::{ApplicationCommand, Command, ServiceResponse},
     },
     utils::{ApplicationError, ApplicationResult},
 };
 
-use std::{any::Any, collections::VecDeque, sync::Arc};
+use std::{any::Any, collections::VecDeque, marker::PhantomData, sync::Arc};
 use tokio::sync::Mutex;
 
 use super::{
-    handlers::{self, CommandHandler, Future, Handler, ServiceHandler},
+    handlers::{self, CommandHandler, Future},
     unit_of_work::UnitOfWork,
 };
 
 #[derive(Clone)]
-pub struct MessageBus {
-    command_handlers: CommandHandler,
-
+pub struct MessageBus<C = ApplicationCommand>
+where
+    C: Command,
+{
+    _phantom: PhantomData<C>,
     #[cfg(test)]
     pub book_keeper: i32,
 }
@@ -27,27 +29,21 @@ pub struct MessageBus {
 impl Default for MessageBus {
     fn default() -> Self {
         Self {
-            command_handlers: Self::default_command_handler(),
+            _phantom: Default::default(),
             #[cfg(test)]
             book_keeper: 0,
         }
     }
 }
 
-impl MessageBus {
-    pub fn new(command_handlers: Option<CommandHandler>) -> Self {
-        if command_handlers.is_none() {
-            return Self::default();
-        };
+impl<C: Command> MessageBus<C> {
+    pub fn new() -> Self {
         Self {
-            command_handlers: command_handlers.unwrap(),
+            _phantom: PhantomData::<C>,
+
             #[cfg(test)]
             book_keeper: 0,
         }
-    }
-
-    fn default_command_handler() -> CommandHandler {
-        ServiceHandler::execute
     }
 
     pub async fn handle(
@@ -64,8 +60,8 @@ impl MessageBus {
         while let Some(msg) = queue.pop_front() {
             // * Logging!
 
-            if msg.is::<ApplicationCommand>() {
-                let cmd: ApplicationCommand = *msg.downcast::<ApplicationCommand>().unwrap();
+            if msg.is::<C>() {
+                let cmd: C = *msg.downcast::<C>().unwrap();
                 let res = self.handle_command(cmd, uow.clone()).await?;
                 res_queue.get_mut().push_back(res);
 
@@ -98,10 +94,10 @@ impl MessageBus {
 
     async fn handle_command(
         &mut self,
-        command: ApplicationCommand,
+        command: C,
         uow: Arc<Mutex<UnitOfWork>>,
     ) -> ApplicationResult<ServiceResponse> {
-        let handler = &self.command_handlers;
+        let handler: CommandHandler<C> = command.execute();
 
         let fut: Future<ServiceResponse> = handler(command, uow);
         Ok(fut.await.expect("Error Occurred While Handling Command!"))
@@ -165,6 +161,8 @@ impl MessageBus {
 #[cfg(test)]
 pub mod test_messagebus {
 
+    use std::marker::PhantomData;
+
     use crate::adapters::database::Connection;
     use crate::domain::commands::ApplicationCommand;
 
@@ -173,12 +171,18 @@ pub mod test_messagebus {
 
     use uuid::Uuid;
 
+    #[test]
+    fn test_message_default() {
+        let ms = MessageBus::default();
+        assert_eq!(ms._phantom,PhantomData::<ApplicationCommand>)
+    }
+
     #[tokio::test]
     async fn test_message_bus_command_handling() {
         run_test(|| {
             Box::pin(async {
                 let connection = Connection::new().await.unwrap();
-                let mut ms = MessageBus::new(None);
+                let mut ms = MessageBus::default();
                 let cmd = ApplicationCommand::CreateBoard {
                     author: Uuid::new_v4(),
                     title: "TestTitle".into(),
