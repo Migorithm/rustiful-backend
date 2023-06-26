@@ -20,7 +20,7 @@ use super::{
 #[derive(Clone)]
 pub struct MessageBus<C = ApplicationCommand>
 where
-    C: Command,
+    C: Command + AnyTrait,
 {
     _phantom: PhantomData<C>,
     #[cfg(test)]
@@ -37,7 +37,10 @@ impl Default for MessageBus {
     }
 }
 
-impl<C: Command + AnyTrait> MessageBus<C> {
+impl<C> MessageBus<C>
+where
+    C: Command + AnyTrait,
+{
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData::<C>,
@@ -52,11 +55,12 @@ impl<C: Command + AnyTrait> MessageBus<C> {
         message: C,
         connection: AtomicConnection,
     ) -> ApplicationResult<VecDeque<C::Response>> {
-        //TODO event generator
         let uow = UnitOfWork::new(connection.clone());
 
         let mut queue = VecDeque::from([message.as_any()]);
         let mut res_queue = Mutex::new(VecDeque::new());
+
+        // TODO Handle Command First and loop event?
 
         while let Some(msg) = queue.pop_front() {
             // * Logging!
