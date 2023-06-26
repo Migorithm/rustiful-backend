@@ -1,5 +1,6 @@
 use std::{pin::Pin, sync::Arc};
 
+use crate::adapters::outbox::OutboxCommand;
 use crate::adapters::repositories::TRepository;
 use crate::domain::auth::events::AuthEvent;
 use crate::domain::board::events::BoardEvent;
@@ -58,6 +59,20 @@ impl Handler for ServiceHandler {
                 }
             };
             uow.commit().await?;
+            Ok(res.into())
+        })
+    }
+}
+
+pub struct OutboxHandler;
+impl Handler for OutboxHandler {
+    type Command = OutboxCommand;
+    fn execute(cmd: Self::Command, uow: Arc<Mutex<UnitOfWork>>) -> Future<ServiceResponse> {
+        Box::pin(async move {
+            let res = match cmd {
+                OutboxCommand::TestCommand => "Success".to_string(),
+                OutboxCommand::TestCode2 => "Success".to_string(),
+            };
             Ok(res.into())
         })
     }

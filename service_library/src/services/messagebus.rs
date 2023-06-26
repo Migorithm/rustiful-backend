@@ -1,5 +1,5 @@
 use crate::{
-    adapters::database::AtomicConnection,
+    adapters::{database::AtomicConnection, outbox::OutboxCommand},
     domain::{
         auth::events::AuthEvent,
         board::events::BoardEvent,
@@ -35,6 +35,9 @@ impl Default for MessageBus {
         }
     }
 }
+
+    
+
 
 impl<C: Command> MessageBus<C> {
     pub fn new() -> Self {
@@ -174,7 +177,7 @@ pub mod test_messagebus {
     #[test]
     fn test_message_default() {
         let ms = MessageBus::default();
-        assert_eq!(ms._phantom,PhantomData::<ApplicationCommand>)
+        assert_eq!(ms._phantom, PhantomData::<ApplicationCommand>)
     }
 
     #[tokio::test]

@@ -7,8 +7,10 @@ use crate::{
     domain::{
         auth::{self, events::AuthEvent},
         board::{self, events::BoardEvent},
+        commands::Command,
         AnyTrait,
     },
+    services::handlers::OutboxHandler,
     utils::{ApplicationError, ApplicationResult},
 };
 
@@ -37,9 +39,13 @@ impl Outbox {
     }
     pub fn convert_event(&self) -> Box<dyn Any + Send + Sync> {
         match self.topic.as_str() {
-            board::events::TOPIC => serde_json::from_str::<BoardEvent>(self.state.as_str())
-                .unwrap()
-                .as_any(),
+            board::events::TOPIC => {
+                match serde_json::from_str::<BoardEvent>(self.state.as_str()).unwrap() {
+                    BoardEvent::Created { .. } => OutboxCommand::TestCommand.as_any(),
+                    _ => todo!(),
+                }
+            }
+
             auth::events::TOPIC => serde_json::from_str::<AuthEvent>(self.state.as_str())
                 .unwrap()
                 .as_any(),
@@ -86,12 +92,24 @@ impl Outbox {
     }
 }
 
+#[derive(Clone)]
+pub enum OutboxCommand {
+    TestCommand,
+    TestCode2
+}
+
+impl Command for OutboxCommand {
+    type Handler = OutboxHandler;
+}
+
 #[cfg(test)]
 mod test_outbox {
     use core::panic;
 
     use uuid::Uuid;
 
+    use crate::adapters::outbox::OutboxCommand;
+    use crate::services::messagebus::MessageBus;
     use crate::utils::test_components::components::*;
     use crate::{
         adapters::{
@@ -100,7 +118,7 @@ mod test_outbox {
             repositories::TRepository,
         },
         domain::{
-            board::{entity::BoardState, events::BoardEvent},
+            board::{entity::BoardState},
             commands::ApplicationCommand,
         },
         services::{
@@ -167,11 +185,11 @@ mod test_outbox {
 
                     assert_eq!(vec_of_outbox.len(), 1);
                     let event = vec_of_outbox.get(0).unwrap().convert_event();
-                    assert!(event.is::<BoardEvent>());
+                    assert!(event.is::<OutboxCommand>());
 
-                    let converted = *event.downcast::<BoardEvent>().unwrap();
+                    let converted = *event.downcast::<OutboxCommand>().unwrap();
                     match converted {
-                        BoardEvent::Created { .. } => {
+                        OutboxCommand::TestCommand { .. } => {
                             println!("Success!")
                         }
                         _ => {
@@ -184,25 +202,36 @@ mod test_outbox {
         .await
     }
 
-    // #[tokio::test]
-    // async fn test_outbox_event_handled_by_messagebus(){
-    //     let outbox_command_handler = [];
+    #[tokio::test]
+    async fn test_outbox_event_handled_by_messagebus() {
+        run_test(|| {
+            Box::pin(async {
+                let connection = Connection::new().await.unwrap();
+                outbox_setup(connection.clone()).await;
 
-    //     run_test(||{
-    //         Box::pin(async{
-    //             let connection = Connection::new().await.unwrap();
-    //             outbox_setup(connection.clone()).await;
+                '_test_case: {
+                    let mut bus = MessageBus::<OutboxCommand>::new();
 
-    //             '_test_case:{
-    //                 let mut bus = MessageBus::default();
+                    for e in Outbox::get(connection.clone()).await.unwrap() {
+                        match bus.handle(e.convert_event(), connection.clone()).await {
+                            Ok(var) => {
+                                assert_eq!(var.len(), 1);
+                            }
+                            Err(_) => panic!("Failed!"),
+                        }
+                        
+                    }
 
-    //                 for e in Outbox::get(connection.clone()).await.unwrap(){
-    //                     bus.handle(e.convert_event(),connection.clone()).await;
-    //                 }
+                    // TODO where does the processed tag get modifeid?
+                    // match Outbox::get(connection.clone()).await{
+                    //     Ok(_var)=> panic!("Shouldn't exist!"),
+                    //     Err(_err) => println!("Success!")
 
-    //             }
+                    // }
 
-    //         })
-    //     }).await;
-    // }
+                }
+            })
+        })
+        .await;
+    }
 }
