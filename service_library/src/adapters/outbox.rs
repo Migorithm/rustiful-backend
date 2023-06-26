@@ -1,16 +1,20 @@
-use std::any::Any;
+use std::{any::Any, sync::Arc};
 
 use chrono::{DateTime, Utc};
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::{
     domain::{
         auth::{self, events::AuthEvent},
         board::{self, events::BoardEvent},
-        commands::Command,
+        commands::{Command, ServiceResponse},
         AnyTrait,
     },
-    services::handlers::OutboxHandler,
+    services::{
+        handlers::{Future, Handler},
+        unit_of_work::UnitOfWork,
+    },
     utils::{ApplicationError, ApplicationResult},
 };
 
@@ -39,12 +43,9 @@ impl Outbox {
     }
     pub fn convert_event(&self) -> Box<dyn Any + Send + Sync> {
         match self.topic.as_str() {
-            board::events::TOPIC => {
-                match serde_json::from_str::<BoardEvent>(self.state.as_str()).unwrap() {
-                    BoardEvent::Created { .. } => OutboxCommand::TestCommand.as_any(),
-                    _ => todo!(),
-                }
-            }
+            board::events::TOPIC => serde_json::from_str::<BoardEvent>(self.state.as_str())
+                .unwrap()
+                .as_any(),
 
             auth::events::TOPIC => serde_json::from_str::<AuthEvent>(self.state.as_str())
                 .unwrap()
@@ -90,16 +91,49 @@ impl Outbox {
             ApplicationError::DatabaseConnectionError(Box::new(err))
         })
     }
+    pub async fn update(&self, connection: &mut AtomicConnection) -> ApplicationResult<()> {
+        sqlx::query_as!(
+            Self,
+            r#" 
+                UPDATE service_outbox SET 
+                processed =$1
+                WHERE id = $2
+            "#,
+            true,
+            self.id,
+        )
+        .execute(connection.write().await.connection())
+        .await
+        .map_err(|err| {
+            eprintln!("{}", err);
+            ApplicationError::DatabaseConnectionError(Box::new(err))
+        })?;
+        Ok(())
+    }
 }
 
-#[derive(Clone)]
-pub enum OutboxCommand {
-    TestCommand,
-    TestCode2
-}
-
-impl Command for OutboxCommand {
+impl Command for Outbox {
     type Handler = OutboxHandler;
+    type Response = ServiceResponse;
+}
+
+pub struct OutboxHandler;
+impl Handler for OutboxHandler {
+    type Command = Outbox;
+    type Response = ServiceResponse;
+    fn execute(outbox: Self::Command, uow: Arc<Mutex<UnitOfWork>>) -> Future<Self::Response> {
+        Box::pin(async move {
+            let msg = outbox.convert_event();
+            let mut uow = uow.lock().await;
+            uow.begin().await;
+
+            // ! Todo msg handling logic
+            outbox.update(&mut uow.connection).await?;
+
+            uow.commit().await?;
+            Ok(true.into())
+        })
+    }
 }
 
 #[cfg(test)]
@@ -108,7 +142,9 @@ mod test_outbox {
 
     use uuid::Uuid;
 
-    use crate::adapters::outbox::OutboxCommand;
+    use crate::domain::board::events::BoardEvent;
+    use crate::domain::commands::ServiceResponse;
+    use crate::domain::AnyTrait;
     use crate::services::messagebus::MessageBus;
     use crate::utils::test_components::components::*;
     use crate::{
@@ -117,10 +153,7 @@ mod test_outbox {
             outbox::Outbox,
             repositories::TRepository,
         },
-        domain::{
-            board::{entity::BoardState},
-            commands::ApplicationCommand,
-        },
+        domain::{board::entity::BoardState, commands::ApplicationCommand},
         services::{
             handlers::{Handler, ServiceHandler},
             unit_of_work::UnitOfWork,
@@ -140,9 +173,13 @@ mod test_outbox {
             Err(err) => '_fail_case: {
                 panic!("Service Handling Failed! {}", err)
             }
-            Ok(id) => '_test: {
+            Ok(response) => '_test: {
                 let uow = UnitOfWork::new(connection);
-                if let Err(err) = uow.lock().await.boards.get(&id.to_str()).await {
+                let ServiceResponse::String(id) = response else{
+                    panic!("Wrong Variant");
+                };
+
+                if let Err(err) = uow.lock().await.boards.get(&id).await {
                     panic!("Fetching newly created object failed! : {}", err);
                 };
             }
@@ -185,11 +222,11 @@ mod test_outbox {
 
                     assert_eq!(vec_of_outbox.len(), 1);
                     let event = vec_of_outbox.get(0).unwrap().convert_event();
-                    assert!(event.is::<OutboxCommand>());
+                    assert!(event.is::<BoardEvent>());
 
-                    let converted = *event.downcast::<OutboxCommand>().unwrap();
+                    let converted = *event.downcast::<BoardEvent>().unwrap();
                     match converted {
-                        OutboxCommand::TestCommand { .. } => {
+                        BoardEvent::Created { .. } => {
                             println!("Success!")
                         }
                         _ => {
@@ -210,25 +247,20 @@ mod test_outbox {
                 outbox_setup(connection.clone()).await;
 
                 '_test_case: {
-                    let mut bus = MessageBus::<OutboxCommand>::new();
+                    let mut bus = MessageBus::<Outbox>::new();
 
                     for e in Outbox::get(connection.clone()).await.unwrap() {
-                        match bus.handle(e.convert_event(), connection.clone()).await {
+                        match bus.handle(e.as_any(), connection.clone()).await {
                             Ok(var) => {
                                 assert_eq!(var.len(), 1);
                             }
                             Err(_) => panic!("Failed!"),
                         }
-                        
                     }
 
                     // TODO where does the processed tag get modifeid?
-                    // match Outbox::get(connection.clone()).await{
-                    //     Ok(_var)=> panic!("Shouldn't exist!"),
-                    //     Err(_err) => println!("Success!")
-
-                    // }
-
+                    let boxes = Outbox::get(connection.clone()).await.unwrap();
+                    assert!(boxes.is_empty());
                 }
             })
         })

@@ -1,12 +1,11 @@
 use std::{pin::Pin, sync::Arc};
 
-use crate::adapters::outbox::OutboxCommand;
 use crate::adapters::repositories::TRepository;
 use crate::domain::auth::events::AuthEvent;
 use crate::domain::board::events::BoardEvent;
 use crate::domain::builder::{Buildable, Builder};
 
-use crate::domain::commands::ServiceResponse;
+use crate::domain::commands::{Command, ServiceResponse};
 use crate::{
     domain::{board::BoardAggregate, commands::ApplicationCommand},
     utils::ApplicationResult,
@@ -19,15 +18,18 @@ use super::unit_of_work::UnitOfWork;
 pub type Future<T> = Pin<Box<dyn futures::Future<Output = ApplicationResult<T>> + Send>>;
 
 pub trait Handler {
-    type Command;
-    fn execute(cmd: Self::Command, uow: Arc<Mutex<UnitOfWork>>) -> Future<ServiceResponse>;
+    type Command: Command<Response = Self::Response, Handler = Self>;
+    type Response;
+
+    fn execute(cmd: Self::Command, uow: Arc<Mutex<UnitOfWork>>) -> Future<Self::Response>;
 }
 
 pub struct ServiceHandler;
 
 impl Handler for ServiceHandler {
     type Command = ApplicationCommand;
-    fn execute(cmd: Self::Command, uow: Arc<Mutex<UnitOfWork>>) -> Future<ServiceResponse> {
+    type Response = ServiceResponse;
+    fn execute(cmd: Self::Command, uow: Arc<Mutex<UnitOfWork>>) -> Future<Self::Response> {
         Box::pin(async move {
             let mut uow = uow.lock().await;
             uow.begin().await;
@@ -64,22 +66,8 @@ impl Handler for ServiceHandler {
     }
 }
 
-pub struct OutboxHandler;
-impl Handler for OutboxHandler {
-    type Command = OutboxCommand;
-    fn execute(cmd: Self::Command, uow: Arc<Mutex<UnitOfWork>>) -> Future<ServiceResponse> {
-        Box::pin(async move {
-            let res = match cmd {
-                OutboxCommand::TestCommand => "Success".to_string(),
-                OutboxCommand::TestCode2 => "Success".to_string(),
-            };
-            Ok(res.into())
-        })
-    }
-}
-
-pub type CommandHandler<Command> =
-    Box<dyn Fn(Command, Arc<Mutex<UnitOfWork>>) -> Future<ServiceResponse> + Send>;
+pub type CommandHandler<Command, Response> =
+    Box<dyn Fn(Command, Arc<Mutex<UnitOfWork>>) -> Future<Response> + Send>;
 pub type EventHandler<T> = fn(T, Arc<Mutex<UnitOfWork>>) -> Future<()>;
 
 pub(crate) static BOARD_CREATED_EVENT_HANDLERS: [EventHandler<BoardEvent>; 0] = [];
