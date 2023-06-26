@@ -9,7 +9,7 @@ pub mod service_tests {
     use service_library::adapters::repositories::TRepository;
 
     use service_library::domain::board::entity::BoardState;
-    use service_library::domain::commands::ApplicationCommand;
+    use service_library::domain::commands::{ApplicationCommand, ServiceResponse};
     use service_library::services::handlers::{Handler, ServiceHandler};
     use service_library::services::unit_of_work::UnitOfWork;
     use uuid::Uuid;
@@ -30,9 +30,12 @@ pub mod service_tests {
             Err(err) => '_fail_case: {
                 panic!("Service Handling Failed! {}", err)
             }
-            Ok(id) => '_test: {
+            Ok(response) => '_test: {
                 let uow = UnitOfWork::new(connection.clone());
-                if let Err(err) = uow.lock().await.boards.get(&id.to_str()).await {
+                let ServiceResponse::String(id) = response else{
+                    panic!("Wrong Variant");
+                };
+                if let Err(err) = uow.lock().await.boards.get(&id).await {
                     panic!("Fetching newly created object failed! : {}", err);
                 };
             }
@@ -68,9 +71,12 @@ pub mod service_tests {
                 Err(err) => '_fail_case: {
                     panic!("Service Handling Failed! {}", err)
                 }
-                Ok(id) => {
+                Ok(response) => {
                     let uow = UnitOfWork::new(connection.clone());
-                    if let Ok(board_aggregate) = uow.lock().await.boards.get(&id.to_str()).await {
+                    let ServiceResponse::String(id) = response else{
+                        panic!("Wrong Variant");
+                    };
+                    if let Ok(board_aggregate) = uow.lock().await.boards.get(&id).await {
                         assert_eq!(board_aggregate.board.content, "Changed to this".to_string());
                     };
                 }

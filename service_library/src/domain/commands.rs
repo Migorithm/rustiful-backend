@@ -8,14 +8,17 @@ use serde::{self, Deserialize, Serialize};
 use uuid::Uuid;
 
 pub trait Command: Sized + 'static + Send {
-    type Handler: Handler<Command = Self>;
-    fn execute(&self) -> CommandHandler<Self> {
+    type Handler: Handler<Command = Self, Response = Self::Response>;
+    type Response;
+
+    fn execute(&self) -> CommandHandler<Self, Self::Response> {
         Box::new(Self::Handler::execute)
     }
 }
 
 impl Command for ApplicationCommand {
     type Handler = ServiceHandler;
+    type Response = ServiceResponse;
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, Clone, Hash)]
@@ -48,14 +51,7 @@ pub enum ApplicationCommand {
 #[derive(Debug, Clone, Serialize)]
 pub enum ServiceResponse {
     String(String),
-}
-
-impl ServiceResponse {
-    pub fn to_str(&self) -> String {
-        match self {
-            Self::String(var) => var.to_owned(),
-        }
-    }
+    Bool(bool),
 }
 
 impl From<String> for ServiceResponse {
@@ -66,6 +62,11 @@ impl From<String> for ServiceResponse {
 impl From<Uuid> for ServiceResponse {
     fn from(value: Uuid) -> Self {
         ServiceResponse::String(value.to_string())
+    }
+}
+impl From<bool> for ServiceResponse {
+    fn from(value: bool) -> Self {
+        ServiceResponse::Bool(value)
     }
 }
 

@@ -54,6 +54,7 @@ impl IntoResponse for WebResponse {
     fn into_response(self) -> axum::response::Response {
         match self.0 {
             ServiceResponse::String(val) => val.into_response(),
+            ServiceResponse::Bool(_) => "true".into_response(),
         }
     }
 }

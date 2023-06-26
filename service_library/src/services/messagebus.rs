@@ -1,9 +1,9 @@
 use crate::{
-    adapters::{database::AtomicConnection, outbox::OutboxCommand},
+    adapters::database::AtomicConnection,
     domain::{
         auth::events::AuthEvent,
         board::events::BoardEvent,
-        commands::{ApplicationCommand, Command, ServiceResponse},
+        commands::{ApplicationCommand, Command},
     },
     utils::{ApplicationError, ApplicationResult},
 };
@@ -36,9 +36,6 @@ impl Default for MessageBus {
     }
 }
 
-    
-
-
 impl<C: Command> MessageBus<C> {
     pub fn new() -> Self {
         Self {
@@ -53,7 +50,7 @@ impl<C: Command> MessageBus<C> {
         &mut self,
         message: Box<dyn Any + Send + Sync>,
         connection: AtomicConnection,
-    ) -> ApplicationResult<VecDeque<ServiceResponse>> {
+    ) -> ApplicationResult<VecDeque<C::Response>> {
         //TODO event generator
         let uow = UnitOfWork::new(connection.clone());
 
@@ -99,10 +96,10 @@ impl<C: Command> MessageBus<C> {
         &mut self,
         command: C,
         uow: Arc<Mutex<UnitOfWork>>,
-    ) -> ApplicationResult<ServiceResponse> {
-        let handler: CommandHandler<C> = command.execute();
+    ) -> ApplicationResult<C::Response> {
+        let handler: CommandHandler<C, C::Response> = command.execute();
 
-        let fut: Future<ServiceResponse> = handler(command, uow);
+        let fut: Future<C::Response> = handler(command, uow);
         Ok(fut.await.expect("Error Occurred While Handling Command!"))
     }
 
