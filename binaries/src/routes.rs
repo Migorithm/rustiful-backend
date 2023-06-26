@@ -12,7 +12,7 @@ pub async fn create_board(
     State(connection): State<AtomicConnection>,
     Json(cmd): Json<CreateBoard>,
 ) -> Result<WebResponse, Exception> {
-    let mut bus = MessageBus::new(None);
+    let mut bus = MessageBus::default();
     let mut res = bus
         .handle(cmd.to_command(), connection)
         .await
@@ -26,7 +26,7 @@ pub async fn edit_board(
     State(connection): State<AtomicConnection>,
     Json(cmd): Json<EditBoard>,
 ) -> Result<WebResponse, Exception> {
-    let mut bus = MessageBus::new(None);
+    let mut bus = MessageBus::default();
     let mut res = bus
         .handle(cmd.to_command(), connection)
         .await
@@ -40,7 +40,7 @@ pub async fn add_comment(
     State(connection): State<AtomicConnection>,
     Json(cmd): Json<AddComment>,
 ) -> Result<WebResponse, Exception> {
-    let mut bus = MessageBus::new(None);
+    let mut bus = MessageBus::default();
     let mut res = bus
         .handle(cmd.to_command(), connection)
         .await
@@ -54,7 +54,7 @@ pub async fn edit_comment(
     State(connection): State<AtomicConnection>,
     Json(cmd): Json<EditComment>,
 ) -> Result<WebResponse, Exception> {
-    let mut bus = MessageBus::new(None);
+    let mut bus = MessageBus::default();
     let mut res = bus
         .handle(cmd.to_command(), connection)
         .await

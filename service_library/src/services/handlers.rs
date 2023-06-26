@@ -18,37 +18,39 @@ use super::unit_of_work::UnitOfWork;
 pub type Future<T> = Pin<Box<dyn futures::Future<Output = ApplicationResult<T>> + Send>>;
 
 pub trait Handler {
-    fn execute(cmd: ApplicationCommand, uow: Arc<Mutex<UnitOfWork>>) -> Future<ServiceResponse>;
+    type Command;
+    fn execute(cmd: Self::Command, uow: Arc<Mutex<UnitOfWork>>) -> Future<ServiceResponse>;
 }
 
 pub struct ServiceHandler;
 
 impl Handler for ServiceHandler {
-    fn execute(cmd: ApplicationCommand, uow: Arc<Mutex<UnitOfWork>>) -> Future<ServiceResponse> {
+    type Command = ApplicationCommand;
+    fn execute(cmd: Self::Command, uow: Arc<Mutex<UnitOfWork>>) -> Future<ServiceResponse> {
         Box::pin(async move {
             let mut uow = uow.lock().await;
             uow.begin().await;
 
             let res = match cmd {
-                ApplicationCommand::CreateBoard { .. } => {
+                Self::Command::CreateBoard { .. } => {
                     let builder = BoardAggregate::builder();
                     let mut board_aggregate: BoardAggregate = builder.build();
                     board_aggregate.execute(cmd)?;
                     uow.boards.add(board_aggregate).await?
                 }
-                ApplicationCommand::EditBoard { id, .. } => {
+                Self::Command::EditBoard { id, .. } => {
                     let mut board_aggregate = uow.boards.get(&id.to_string()).await?;
                     board_aggregate.execute(cmd)?;
                     uow.boards.update(board_aggregate).await?;
                     id.to_string()
                 }
-                ApplicationCommand::AddComment { board_id, .. } => {
+                Self::Command::AddComment { board_id, .. } => {
                     let mut board_aggregate = uow.boards.get(&board_id.to_string()).await?;
                     board_aggregate.execute(cmd)?;
                     uow.boards.update(board_aggregate).await?;
                     board_id.to_string()
                 }
-                ApplicationCommand::EditComment { board_id, .. } => {
+                Self::Command::EditComment { board_id, .. } => {
                     let mut board_aggregate = uow.boards.get(&board_id.to_string()).await?;
                     board_aggregate.execute(cmd)?;
                     uow.boards.update(board_aggregate).await?;
@@ -61,7 +63,8 @@ impl Handler for ServiceHandler {
     }
 }
 
-pub type CommandHandler = fn(ApplicationCommand, Arc<Mutex<UnitOfWork>>) -> Future<ServiceResponse>;
+pub type CommandHandler<Command> =
+    Box<dyn Fn(Command, Arc<Mutex<UnitOfWork>>) -> Future<ServiceResponse> + Send>;
 pub type EventHandler<T> = fn(T, Arc<Mutex<UnitOfWork>>) -> Future<()>;
 
 pub(crate) static BOARD_CREATED_EVENT_HANDLERS: [EventHandler<BoardEvent>; 0] = [];

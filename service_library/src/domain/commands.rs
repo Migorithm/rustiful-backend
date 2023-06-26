@@ -1,7 +1,22 @@
-use crate::domain::board::entity::BoardState;
+use crate::{
+    domain::board::entity::BoardState,
+    services::handlers::{CommandHandler, Handler, ServiceHandler},
+};
 
 use serde::{self, Deserialize, Serialize};
+
 use uuid::Uuid;
+
+pub trait Command: Sized + 'static + Send {
+    type Handler: Handler<Command = Self>;
+    fn execute(&self) -> CommandHandler<Self> {
+        Box::new(Self::Handler::execute)
+    }
+}
+
+impl Command for ApplicationCommand {
+    type Handler = ServiceHandler;
+}
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, Clone, Hash)]
 pub enum ApplicationCommand {
