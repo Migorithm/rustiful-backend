@@ -4,6 +4,7 @@ use crate::{
         auth::events::AuthEvent,
         board::events::BoardEvent,
         commands::{ApplicationCommand, Command},
+        AnyTrait,
     },
     utils::{ApplicationError, ApplicationResult},
 };
@@ -19,7 +20,7 @@ use super::{
 #[derive(Clone)]
 pub struct MessageBus<C = ApplicationCommand>
 where
-    C: Command,
+    C: Command + AnyTrait,
 {
     _phantom: PhantomData<C>,
     #[cfg(test)]
@@ -36,7 +37,10 @@ impl Default for MessageBus {
     }
 }
 
-impl<C: Command> MessageBus<C> {
+impl<C> MessageBus<C>
+where
+    C: Command + AnyTrait,
+{
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData::<C>,
@@ -48,14 +52,15 @@ impl<C: Command> MessageBus<C> {
 
     pub async fn handle(
         &mut self,
-        message: Box<dyn Any + Send + Sync>,
+        message: C,
         connection: AtomicConnection,
     ) -> ApplicationResult<VecDeque<C::Response>> {
-        //TODO event generator
         let uow = UnitOfWork::new(connection.clone());
 
-        let mut queue = VecDeque::from([message]);
+        let mut queue = VecDeque::from([message.as_any()]);
         let mut res_queue = Mutex::new(VecDeque::new());
+
+        // TODO Handle Command First and loop event?
 
         while let Some(msg) = queue.pop_front() {
             // * Logging!
@@ -189,7 +194,7 @@ pub mod test_messagebus {
                     content: "TestContent".into(),
                     state: Default::default(),
                 };
-                match ms.handle(Box::new(cmd), connection).await {
+                match ms.handle(cmd, connection).await {
                     Ok(mut res_queue) => {
                         let res = res_queue
                             .pop_front()

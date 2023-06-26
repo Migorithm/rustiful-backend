@@ -144,7 +144,6 @@ mod test_outbox {
 
     use crate::domain::board::events::BoardEvent;
     use crate::domain::commands::ServiceResponse;
-    use crate::domain::AnyTrait;
     use crate::services::messagebus::MessageBus;
     use crate::utils::test_components::components::*;
     use crate::{
@@ -250,7 +249,7 @@ mod test_outbox {
                     let mut bus = MessageBus::<Outbox>::new();
 
                     for e in Outbox::get(connection.clone()).await.unwrap() {
-                        match bus.handle(e.as_any(), connection.clone()).await {
+                        match bus.handle(e, connection.clone()).await {
                             Ok(var) => {
                                 assert_eq!(var.len(), 1);
                             }

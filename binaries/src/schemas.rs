@@ -1,7 +1,5 @@
-use std::any::Any;
-
 use serde::Deserialize;
-use service_library::domain::{board::entity::BoardState, commands::ApplicationCommand, AnyTrait};
+use service_library::domain::{board::entity::BoardState, commands::ApplicationCommand};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
@@ -36,49 +34,45 @@ pub struct EditComment {
 }
 
 pub trait ToCommand: Send + Sync {
-    fn to_command(self) -> Box<dyn Any + Sync + Send>;
+    fn to_command(self) -> ApplicationCommand;
 }
 impl ToCommand for CreateBoard {
-    fn to_command(self) -> Box<dyn Any + Sync + Send> {
+    fn to_command(self) -> ApplicationCommand {
         ApplicationCommand::CreateBoard {
             author: self.author,
             title: self.title,
             content: self.content,
             state: self.state,
         }
-        .as_any()
     }
 }
 impl ToCommand for EditBoard {
-    fn to_command(self) -> Box<dyn Any + Sync + Send> {
+    fn to_command(self) -> ApplicationCommand {
         ApplicationCommand::EditBoard {
             id: self.id,
             title: self.title,
             content: self.content,
             state: self.state,
         }
-        .as_any()
     }
 }
 
 impl ToCommand for AddComment {
-    fn to_command(self) -> Box<dyn Any + Sync + Send> {
+    fn to_command(self) -> ApplicationCommand {
         ApplicationCommand::AddComment {
             board_id: self.board_id,
             author: self.author,
             content: self.content,
         }
-        .as_any()
     }
 }
 
 impl ToCommand for EditComment {
-    fn to_command(self) -> Box<dyn Any + Sync + Send> {
+    fn to_command(self) -> ApplicationCommand {
         ApplicationCommand::EditComment {
             board_id: self.board_id,
             id: self.id,
             content: self.content,
         }
-        .as_any()
     }
 }
