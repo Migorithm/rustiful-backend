@@ -169,32 +169,38 @@ pub mod test_messagebus {
     use crate::domain::commands::ApplicationCommand;
 
     use crate::services::messagebus::MessageBus;
+    use crate::utils::test_components::components::*;
 
     use uuid::Uuid;
 
     #[tokio::test]
     async fn test_message_bus_command_handling() {
-        let connection = Connection::new().await.unwrap();
-        let mut ms = MessageBus::new(None);
-        let cmd = ApplicationCommand::CreateBoard {
-            author: Uuid::new_v4(),
-            title: "TestTitle".into(),
-            content: "TestContent".into(),
-            state: Default::default(),
-        };
-        match ms.handle(Box::new(cmd), connection).await {
-            Ok(mut res_queue) => {
-                let res = res_queue
-                    .pop_front()
-                    .expect("There Must Be A Result String!");
-                println!("{:?}", res)
-            }
-            Err(err) => {
-                eprintln!("{}", err);
-                panic!("Test Failed!")
-            }
-        };
+        run_test(|| {
+            Box::pin(async {
+                let connection = Connection::new().await.unwrap();
+                let mut ms = MessageBus::new(None);
+                let cmd = ApplicationCommand::CreateBoard {
+                    author: Uuid::new_v4(),
+                    title: "TestTitle".into(),
+                    content: "TestContent".into(),
+                    state: Default::default(),
+                };
+                match ms.handle(Box::new(cmd), connection).await {
+                    Ok(mut res_queue) => {
+                        let res = res_queue
+                            .pop_front()
+                            .expect("There Must Be A Result String!");
+                        println!("{:?}", res)
+                    }
+                    Err(err) => {
+                        eprintln!("{}", err);
+                        panic!("Test Failed!")
+                    }
+                };
 
-        assert_eq!(ms.book_keeper, 2)
+                assert_eq!(ms.book_keeper, 2);
+            })
+        })
+        .await;
     }
 }
