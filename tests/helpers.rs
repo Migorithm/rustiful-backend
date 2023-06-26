@@ -6,27 +6,24 @@ pub mod functions {
     use service_library::adapters::database::{AtomicConnection, Connection};
     use service_library::adapters::repositories::{Repository, TRepository};
 
+    use dotenv::dotenv;
     use service_library::domain::board::entity::{Board, BoardState, Comment};
     use service_library::domain::board::events::BoardEvent;
     use service_library::domain::board::BoardAggregate;
     use service_library::domain::builder::{Buildable, Builder};
 
-    use dotenv::dotenv;
-
     use uuid::Uuid;
+    pub async fn get_connection() -> AtomicConnection {
+        dotenv().unwrap();
 
+        Connection::new().await.unwrap()
+    }
     pub async fn tear_down() {
         let connection = get_connection().await;
         sqlx::query("TRUNCATE community_board, community_comment, auth_account, auth_token_stat,service_outbox")
             .execute(&connection.read().await.pool)
             .await
             .unwrap();
-    }
-
-    pub async fn get_connection() -> AtomicConnection {
-        dotenv().unwrap();
-
-        Connection::new().await.unwrap()
     }
 
     pub async fn board_repository_helper(
