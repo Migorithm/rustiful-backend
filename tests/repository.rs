@@ -16,7 +16,7 @@ mod repository_tests {
     use service_library::domain::board::events::BoardEvent;
     use service_library::domain::board::BoardAggregate;
     use service_library::domain::builder::{Buildable, Builder};
-    use service_library::domain::commands::ApplicationCommand;
+
     use uuid::Uuid;
 
     #[tokio::test]

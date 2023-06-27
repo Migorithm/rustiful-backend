@@ -4,13 +4,10 @@ use crate::{
     utils::{ApplicationError, ApplicationResult},
 };
 
-use std::{any::Any, collections::VecDeque, marker::PhantomData, sync::Arc};
+use std::{any::Any, marker::PhantomData, sync::Arc};
 use tokio::sync::Mutex;
 
-use super::{
-    handlers::{self, Future},
-    unit_of_work::UnitOfWork,
-};
+use super::{handlers, unit_of_work::UnitOfWork};
 
 #[derive(Clone)]
 pub struct MessageBus<C>
@@ -48,38 +45,26 @@ where
         &mut self,
         message: C,
         connection: AtomicConnection,
-    ) -> ApplicationResult<VecDeque<C::Response>> {
+    ) -> ApplicationResult<C::Response> {
         let uow = UnitOfWork::new(connection.clone());
-
-        let mut queue = VecDeque::from([message.as_any()]);
-        let mut res_queue = Mutex::new(VecDeque::new());
+        let res = message.handle(uow.clone()).await;
+        let mut queue = uow.clone().lock().await._collect_events();
 
         // TODO Handle Command First and loop event?
 
         while let Some(msg) = queue.pop_front() {
             // * Logging!
 
-            if msg.is::<C>() {
-                let cmd: C = *msg.downcast::<C>().unwrap();
-                let res = self.handle_command(cmd, uow.clone()).await?;
-                res_queue.get_mut().push_back(res);
-
-                #[cfg(test)]
-                {
-                    self.book_keeper += 1;
-                };
-            } else {
-                match self.handle_event(msg, uow.clone()).await {
-                    Err(ApplicationError::StopSentinel) => {
-                        eprintln!("Stop Sentinel Reached!");
-                        break;
-                    }
-                    Err(err) => {
-                        eprintln!("Error Occurred While Handling Event! Error:{}", err);
-                    }
-                    Ok(_) => {
-                        println!("Event Handling Succeeded!")
-                    }
+            match self.handle_event(msg, uow.clone()).await {
+                Err(ApplicationError::StopSentinel) => {
+                    eprintln!("Stop Sentinel Reached!");
+                    break;
+                }
+                Err(err) => {
+                    eprintln!("Error Occurred While Handling Event! Error:{}", err);
+                }
+                Ok(_) => {
+                    println!("Event Handling Succeeded!")
                 }
             }
 
@@ -88,16 +73,7 @@ where
             }
         }
         drop(uow);
-        Ok(res_queue.into_inner())
-    }
-
-    async fn handle_command(
-        &mut self,
-        command: C,
-        uow: Arc<Mutex<UnitOfWork>>,
-    ) -> ApplicationResult<C::Response> {
-        let fut: Future<C::Response> = C::handle(command, uow);
-        Ok(fut.await.expect("Error Occurred While Handling Command!"))
+        res
     }
 
     async fn handle_event(
@@ -162,7 +138,6 @@ pub mod test_messagebus {
 
     use crate::adapters::database::Connection;
     use crate::domain::board::commands::CreateBoard;
-    use crate::domain::commands::ApplicationCommand;
 
     use crate::services::messagebus::MessageBus;
     use crate::utils::test_components::components::*;
@@ -187,10 +162,7 @@ pub mod test_messagebus {
                 state: Default::default(),
             };
             match ms.handle(cmd, connection).await {
-                Ok(mut res_queue) => {
-                    let res = res_queue
-                        .pop_front()
-                        .expect("There Must Be A Result String!");
+                Ok(res) => {
                     println!("{:?}", res)
                 }
                 Err(err) => {
@@ -199,7 +171,7 @@ pub mod test_messagebus {
                 }
             };
 
-            assert_eq!(ms.book_keeper, 2);
+            assert_eq!(ms.book_keeper, 1);
         })
         .await;
     }

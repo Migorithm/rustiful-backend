@@ -13,9 +13,9 @@ pub async fn create_board(
     Json(cmd): Json<CreateBoard>,
 ) -> Result<WebResponse<String>, Exception> {
     let mut bus = MessageBus::<CreateBoard>::new();
-    let mut res = bus.handle(cmd, connection).await.map_err(Exception)?;
+    let res = bus.handle(cmd, connection).await.map_err(Exception)?;
 
-    Ok(WebResponse(res.pop_front().unwrap()))
+    Ok(WebResponse(res))
 }
 
 #[utoipa::path(patch, path = "/boards",request_body=EditBoard)]
