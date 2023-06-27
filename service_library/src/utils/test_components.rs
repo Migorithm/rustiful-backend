@@ -16,7 +16,7 @@ pub mod components {
             .unwrap();
     }
 
-    pub async fn run_test<T>(test: T) -> ()
+    pub async fn run_test<T>(test: T)
     where
         T: Future<Output = ()>,
     {
