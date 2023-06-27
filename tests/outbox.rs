@@ -4,6 +4,7 @@ mod helpers;
 mod test_outbox {
     use crate::helpers::functions::*;
     use core::panic;
+    use service_library::domain::board::commands::CreateBoard;
     use uuid::Uuid;
 
     use service_library::domain::board::events::BoardEvent;
@@ -16,15 +17,12 @@ mod test_outbox {
             outbox::Outbox,
             repositories::TRepository,
         },
-        domain::{board::entity::BoardState, commands::ApplicationCommand},
-        services::{
-            handlers::{Handler, ServiceHandler},
-            unit_of_work::UnitOfWork,
-        },
+        domain::{board::entity::BoardState, commands::Command},
+        services::unit_of_work::UnitOfWork,
     };
 
     async fn outbox_setup(connection: AtomicConnection) {
-        let cmd = ApplicationCommand::CreateBoard {
+        let cmd = CreateBoard {
             author: Uuid::new_v4(),
             title: "Title!".to_string(),
             content: "Content".to_string(),
@@ -32,17 +30,14 @@ mod test_outbox {
         };
 
         let uow = UnitOfWork::new(connection.clone());
-        match ServiceHandler::execute(cmd, uow.clone()).await {
+        match cmd.handle(uow.clone()).await {
             Err(err) => '_fail_case: {
                 panic!("Service Handling Failed! {}", err)
             }
             Ok(response) => '_test: {
                 let uow = UnitOfWork::new(connection);
-                let ServiceResponse::String(id) = response else{
-                    panic!("Wrong Variant");
-                };
 
-                if let Err(err) = uow.lock().await.boards.get(&id).await {
+                if let Err(err) = uow.lock().await.boards.get(&response).await {
                     panic!("Fetching newly created object failed! : {}", err);
                 };
             }

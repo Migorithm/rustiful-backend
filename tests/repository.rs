@@ -10,6 +10,7 @@ mod repository_tests {
     use service_library::adapters::database::Connection;
     use service_library::adapters::repositories::{Repository, TRepository};
 
+    use service_library::domain::board::commands::EditBoard;
     use service_library::domain::board::entity::BoardState;
 
     use service_library::domain::board::events::BoardEvent;
@@ -108,14 +109,13 @@ mod repository_tests {
             '_transaction_block2: {
                 connection.write().await.begin().await.unwrap();
                 let mut board_aggregate = board_repo.get(&id).await.unwrap();
-                board_aggregate
-                    .execute(ApplicationCommand::EditBoard {
-                        id: Uuid::from_str(&id).unwrap(),
-                        title: None,
-                        content: None,
-                        state: Some(BoardState::Deleted),
-                    })
-                    .unwrap();
+                board_aggregate.update_board(EditBoard {
+                    id: Uuid::from_str(&id).unwrap(),
+                    title: None,
+                    content: None,
+                    state: Some(BoardState::Deleted),
+                });
+
                 board_repo.update(board_aggregate).await.unwrap();
                 connection.write().await.commit().await.unwrap();
             }

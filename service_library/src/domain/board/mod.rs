@@ -1,17 +1,16 @@
+pub mod commands;
 pub mod entity;
 pub mod events;
-
 use std::{collections::VecDeque, mem};
 
 use crate::utils::{ApplicationError, ApplicationResult};
 
+use self::commands::{AddComment, CreateBoard, EditBoard, EditComment};
 use self::entity::{Board, BoardState, Comment};
 use self::events::BoardEvent;
 use super::builder::{Buildable, Builder};
-use super::commands::ApplicationCommand;
 
 use super::Aggregate;
-use uuid::Uuid;
 
 impl Aggregate for BoardAggregate {
     type Event = BoardEvent;
@@ -35,14 +34,8 @@ pub struct BoardAggregate {
 }
 
 impl BoardAggregate {
-    pub fn create_board(
-        &mut self,
-        author: Uuid,
-        title: String,
-        content: String,
-        state: BoardState,
-    ) {
-        self.board = Board::new(author, title, content, state);
+    pub fn create_board(&mut self, cmd: CreateBoard) {
+        self.board = Board::new(cmd.author, cmd.title, cmd.content, cmd.state);
         self.raise_event(BoardEvent::Created {
             id: self.board.id,
             author: self.board.author,
@@ -51,69 +44,38 @@ impl BoardAggregate {
             state: self.board.state.clone(),
         })
     }
-    pub fn update_board(
-        &mut self,
-        title: Option<String>,
-        content: Option<String>,
-        state: Option<BoardState>,
-    ) {
-        if let Some(ref title) = title {
+    pub fn update_board(&mut self, cmd: EditBoard) {
+        if let Some(ref title) = cmd.title {
             self.board.title = title.clone();
         }
-        if let Some(ref content) = content {
+        if let Some(ref content) = cmd.content {
             self.board.content = content.clone();
         }
-        if let Some(ref state) = state {
+        if let Some(ref state) = cmd.state {
             self.board.state = state.clone()
         }
         self.raise_event(BoardEvent::Updated {
             id: self.board.id,
-            title,
-            content,
-            state,
+            title: cmd.title,
+            content: cmd.content,
+            state: cmd.state,
         })
     }
-    pub fn add_comment(&mut self, author: Uuid, content: String) {
+    pub fn add_comment(&mut self, cmd: AddComment) {
         self.comments
-            .push(Comment::new(self.board.id, author, &content))
+            .push(Comment::new(self.board.id, cmd.author, &cmd.content))
     }
     pub fn delete(&mut self) {
         self.board.state = BoardState::Deleted
     }
 
-    fn edit_comment(&mut self, id: Uuid, content: String) -> ApplicationResult<()> {
+    fn edit_comment(&mut self, cmd: EditComment) -> ApplicationResult<()> {
         let comment = self
             .comments
             .iter_mut()
-            .find(|c| c.id == id)
+            .find(|c| c.id == cmd.id)
             .ok_or(ApplicationError::NotFound)?;
-        comment.content = content;
-        Ok(())
-    }
-
-    pub fn execute(&mut self, cmd: ApplicationCommand) -> ApplicationResult<()> {
-        //TODO Event generation!
-        match cmd {
-            ApplicationCommand::CreateBoard {
-                author,
-                title,
-                content,
-                state,
-            } => self.create_board(author, title, content, state),
-            ApplicationCommand::EditBoard {
-                title,
-                content,
-                state,
-                ..
-            } => self.update_board(title, content, state),
-
-            ApplicationCommand::AddComment {
-                author, content, ..
-            } => self.add_comment(author, content),
-            ApplicationCommand::EditComment { id, content, .. } => {
-                self.edit_comment(id, content)?
-            }
-        }
+        comment.content = cmd.content;
         Ok(())
     }
 }

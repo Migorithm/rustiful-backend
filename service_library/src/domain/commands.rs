@@ -1,24 +1,18 @@
+use std::sync::Arc;
+
 use crate::{
     domain::board::entity::BoardState,
-    services::handlers::{CommandHandler, Handler, ServiceHandler},
+    services::{handlers::Future, unit_of_work::UnitOfWork},
 };
 
 use serde::{self, Deserialize, Serialize};
 
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
 pub trait Command: Sized + 'static + Send {
-    type Handler: Handler<Command = Self, Response = Self::Response>;
     type Response;
-
-    fn execute(&self) -> CommandHandler<Self, Self::Response> {
-        Box::new(Self::Handler::execute)
-    }
-}
-
-impl Command for ApplicationCommand {
-    type Handler = ServiceHandler;
-    type Response = ServiceResponse;
+    fn handle(self, uow: Arc<Mutex<UnitOfWork>>) -> Future<Self::Response>;
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, Clone, Hash)]

@@ -1,11 +1,6 @@
 use crate::{
     adapters::database::AtomicConnection,
-    domain::{
-        auth::events::AuthEvent,
-        board::events::BoardEvent,
-        commands::{ApplicationCommand, Command},
-        AnyTrait,
-    },
+    domain::{auth::events::AuthEvent, board::events::BoardEvent, commands::Command, AnyTrait},
     utils::{ApplicationError, ApplicationResult},
 };
 
@@ -13,12 +8,12 @@ use std::{any::Any, collections::VecDeque, marker::PhantomData, sync::Arc};
 use tokio::sync::Mutex;
 
 use super::{
-    handlers::{self, CommandHandler, Future},
+    handlers::{self, Future},
     unit_of_work::UnitOfWork,
 };
 
 #[derive(Clone)]
-pub struct MessageBus<C = ApplicationCommand>
+pub struct MessageBus<C>
 where
     C: Command + AnyTrait,
 {
@@ -27,13 +22,12 @@ where
     pub book_keeper: i32,
 }
 
-impl Default for MessageBus {
+impl<C> Default for MessageBus<C>
+where
+    C: Command + AnyTrait,
+{
     fn default() -> Self {
-        Self {
-            _phantom: Default::default(),
-            #[cfg(test)]
-            book_keeper: 0,
-        }
+        Self::new()
     }
 }
 
@@ -102,9 +96,7 @@ where
         command: C,
         uow: Arc<Mutex<UnitOfWork>>,
     ) -> ApplicationResult<C::Response> {
-        let handler: CommandHandler<C, C::Response> = command.execute();
-
-        let fut: Future<C::Response> = handler(command, uow);
+        let fut: Future<C::Response> = C::handle(command, uow);
         Ok(fut.await.expect("Error Occurred While Handling Command!"))
     }
 
@@ -169,6 +161,7 @@ pub mod test_messagebus {
     use std::marker::PhantomData;
 
     use crate::adapters::database::Connection;
+    use crate::domain::board::commands::CreateBoard;
     use crate::domain::commands::ApplicationCommand;
 
     use crate::services::messagebus::MessageBus;
@@ -178,16 +171,16 @@ pub mod test_messagebus {
 
     #[test]
     fn test_message_default() {
-        let ms = MessageBus::default();
-        assert_eq!(ms._phantom, PhantomData::<ApplicationCommand>)
+        let ms = MessageBus::<CreateBoard>::new();
+        assert_eq!(ms._phantom, PhantomData::<CreateBoard>)
     }
 
     #[tokio::test]
     async fn test_message_bus_command_handling() {
         run_test(async {
             let connection = Connection::new().await.unwrap();
-            let mut ms = MessageBus::default();
-            let cmd = ApplicationCommand::CreateBoard {
+            let mut ms = MessageBus::<CreateBoard>::new();
+            let cmd = CreateBoard {
                 author: Uuid::new_v4(),
                 title: "TestTitle".into(),
                 content: "TestContent".into(),

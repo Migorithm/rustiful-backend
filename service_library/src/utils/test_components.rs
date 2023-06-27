@@ -1,7 +1,5 @@
 #[cfg(test)]
 pub mod components {
-    use std::pin::Pin;
-
     use crate::adapters::database::{AtomicConnection, Connection};
     use dotenv::dotenv;
     use futures::Future;
