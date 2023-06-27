@@ -20,10 +20,10 @@ pub mod components {
 
     pub async fn run_test<T>(test: T) -> ()
     where
-        T: FnOnce() -> Pin<Box<dyn Future<Output = ()>>>,
+        T: Future<Output = ()>,
     {
         dotenv().unwrap();
-        test().await;
+        Box::pin(test).await;
         tear_down().await;
     }
 }

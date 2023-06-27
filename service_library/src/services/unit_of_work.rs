@@ -88,98 +88,94 @@ mod test_unit_of_work {
 
     #[tokio::test]
     async fn test_unit_of_work() {
-        run_test(|| {
-            Box::pin(async {
-                let connection = Connection::new().await.unwrap();
-                let uow = UnitOfWork::new(connection);
+        run_test(async {
+            let connection = Connection::new().await.unwrap();
+            let uow = UnitOfWork::new(connection);
 
-                '_transaction_block: {
-                    let builder = BoardAggregate::builder();
-                    let boardaggregate = builder
-                        .take_board(Board::new(
-                            Uuid::new_v4(),
-                            "Title!",
-                            "Content!",
-                            BoardState::Published,
-                        ))
-                        .build();
-                    let id: String = boardaggregate.board.id.to_string();
-                    let mut uow = uow.lock().await;
-                    uow.begin().await;
-                    uow.boards.add(boardaggregate).await.unwrap();
-                    uow.commit().await.unwrap();
+            '_transaction_block: {
+                let builder = BoardAggregate::builder();
+                let boardaggregate = builder
+                    .take_board(Board::new(
+                        Uuid::new_v4(),
+                        "Title!",
+                        "Content!",
+                        BoardState::Published,
+                    ))
+                    .build();
+                let id: String = boardaggregate.board.id.to_string();
+                let mut uow = uow.lock().await;
+                uow.begin().await;
+                uow.boards.add(boardaggregate).await.unwrap();
+                uow.commit().await.unwrap();
 
-                    '_test_block: {
-                        if let Err(err) = uow.boards.get(&id).await {
-                            panic!("Fetch Error!:{}", err)
-                        };
-                    }
+                '_test_block: {
+                    if let Err(err) = uow.boards.get(&id).await {
+                        panic!("Fetch Error!:{}", err)
+                    };
                 }
+            }
 
-                '_transaction_block: {
-                    let builder = BoardAggregate::builder();
-                    let boardaggregate = builder
-                        .take_board(Board::new(
-                            Uuid::new_v4(),
-                            "Title!",
-                            "Content!",
-                            BoardState::Published,
-                        ))
-                        .build();
-                    let id: String = boardaggregate.board.id.to_string();
-                    let mut uow = uow.lock().await;
-                    uow.begin().await;
-                    uow.boards.add(boardaggregate).await.unwrap();
-                    uow.rollback().await.unwrap();
+            '_transaction_block: {
+                let builder = BoardAggregate::builder();
+                let boardaggregate = builder
+                    .take_board(Board::new(
+                        Uuid::new_v4(),
+                        "Title!",
+                        "Content!",
+                        BoardState::Published,
+                    ))
+                    .build();
+                let id: String = boardaggregate.board.id.to_string();
+                let mut uow = uow.lock().await;
+                uow.begin().await;
+                uow.boards.add(boardaggregate).await.unwrap();
+                uow.rollback().await.unwrap();
 
-                    '_test_block: {
-                        if let Ok(_val) = uow.boards.get(&id).await {
-                            panic!("Shouldn't be able to fetch after rollback!!")
-                        };
-                    }
+                '_test_block: {
+                    if let Ok(_val) = uow.boards.get(&id).await {
+                        panic!("Shouldn't be able to fetch after rollback!!")
+                    };
                 }
-            })
+            }
         })
         .await
     }
 
     #[tokio::test]
     async fn test_unit_of_work_event_collection() {
-        run_test(|| {
-            Box::pin(async {
-                let connection = Connection::new().await.unwrap();
-                let uow = UnitOfWork::new(connection);
-                '_transaction_block: {
-                    let builder = BoardAggregate::builder();
-                    let mut boardaggregate = builder.build();
+        run_test(async {
+            let connection = Connection::new().await.unwrap();
+            let uow = UnitOfWork::new(connection);
+            '_transaction_block: {
+                let builder = BoardAggregate::builder();
+                let mut boardaggregate = builder.build();
 
-                    // The following method on aggregate raises an event
-                    boardaggregate.create_board(
-                        Uuid::new_v4(),
-                        "Title!".into(),
-                        "Content".into(),
-                        BoardState::Published,
-                    );
-                    let id: String = boardaggregate.board.id.to_string();
+                // The following method on aggregate raises an event
+                boardaggregate.create_board(
+                    Uuid::new_v4(),
+                    "Title!".into(),
+                    "Content".into(),
+                    BoardState::Published,
+                );
+                let id: String = boardaggregate.board.id.to_string();
 
-                    let mut uow = uow.lock().await;
-                    uow.begin().await;
-                    uow.boards.add(boardaggregate).await.unwrap();
-                    uow.commit().await.unwrap();
+                let mut uow = uow.lock().await;
+                uow.begin().await;
+                uow.boards.add(boardaggregate).await.unwrap();
+                uow.commit().await.unwrap();
 
-                    '_test_block: {
-                        if let Err(err) = uow.boards.get(&id).await {
-                            panic!("Fetch Error!:{}", err)
-                        };
-                        let vec = uow._collect_events();
-                        assert_eq!(vec.len(), 1);
+                '_test_block: {
+                    if let Err(err) = uow.boards.get(&id).await {
+                        panic!("Fetch Error!:{}", err)
+                    };
+                    let vec = uow._collect_events();
+                    assert_eq!(vec.len(), 1);
 
-                        // When you try it again, it should be empty
-                        let vec = uow._collect_events();
-                        assert_eq!(vec.len(), 0)
-                    }
+                    // When you try it again, it should be empty
+                    let vec = uow._collect_events();
+                    assert_eq!(vec.len(), 0)
                 }
-            })
+            }
         })
         .await;
     }

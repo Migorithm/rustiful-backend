@@ -184,31 +184,29 @@ pub mod test_messagebus {
 
     #[tokio::test]
     async fn test_message_bus_command_handling() {
-        run_test(|| {
-            Box::pin(async {
-                let connection = Connection::new().await.unwrap();
-                let mut ms = MessageBus::default();
-                let cmd = ApplicationCommand::CreateBoard {
-                    author: Uuid::new_v4(),
-                    title: "TestTitle".into(),
-                    content: "TestContent".into(),
-                    state: Default::default(),
-                };
-                match ms.handle(cmd, connection).await {
-                    Ok(mut res_queue) => {
-                        let res = res_queue
-                            .pop_front()
-                            .expect("There Must Be A Result String!");
-                        println!("{:?}", res)
-                    }
-                    Err(err) => {
-                        eprintln!("{}", err);
-                        panic!("Test Failed!")
-                    }
-                };
+        run_test(async {
+            let connection = Connection::new().await.unwrap();
+            let mut ms = MessageBus::default();
+            let cmd = ApplicationCommand::CreateBoard {
+                author: Uuid::new_v4(),
+                title: "TestTitle".into(),
+                content: "TestContent".into(),
+                state: Default::default(),
+            };
+            match ms.handle(cmd, connection).await {
+                Ok(mut res_queue) => {
+                    let res = res_queue
+                        .pop_front()
+                        .expect("There Must Be A Result String!");
+                    println!("{:?}", res)
+                }
+                Err(err) => {
+                    eprintln!("{}", err);
+                    panic!("Test Failed!")
+                }
+            };
 
-                assert_eq!(ms.book_keeper, 2);
-            })
+            assert_eq!(ms.book_keeper, 2);
         })
         .await;
     }
