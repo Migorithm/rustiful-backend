@@ -104,7 +104,7 @@ mod test_outbox {
 
                 for e in Outbox::get(connection.clone()).await.unwrap() {
                     match bus.handle(e, connection.clone()).await {
-                        Ok(var) => {
+                        Ok(_var) => {
                             println!("Success!")
                         }
                         Err(_) => panic!("Failed!"),

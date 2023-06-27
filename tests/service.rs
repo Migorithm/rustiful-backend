@@ -77,7 +77,7 @@ pub mod service_tests {
                     Err(err) => '_fail_case: {
                         panic!("Service Handling Failed! {}", err)
                     }
-                    Ok(response) => {
+                    Ok(()) => {
                         let uow = UnitOfWork::new(connection.clone());
 
                         if let Ok(board_aggregate) = uow.lock().await.boards.get(&id).await {

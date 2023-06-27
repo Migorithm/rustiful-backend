@@ -48,7 +48,7 @@ pub mod functions {
         Comment::new(uuidfied, Uuid::new_v4(), "노잼")
     }
 
-    pub async fn run_test<T>(test: T) -> ()
+    pub async fn run_test<T>(test: T)
     where
         T: Future<Output = ()>,
     {

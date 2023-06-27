@@ -1,6 +1,8 @@
 mod error;
 mod routes;
 
+use std::env;
+
 use axum::{
     http::{HeaderValue, Method},
     Router,
@@ -65,7 +67,12 @@ async fn main() {
         .with_state(conn.clone())
         .layer(
             CorsLayer::new()
-                .allow_origin("http://localhost:3000".parse::<HeaderValue>().unwrap())
+                .allow_origin(
+                    env::var("ALLOW_ORIGINS")
+                        .expect("CORS origin set failed!")
+                        .parse::<HeaderValue>()
+                        .unwrap(),
+                )
                 .allow_methods([
                     Method::GET,
                     Method::POST,
@@ -77,8 +84,13 @@ async fn main() {
         .layer(TraceLayer::new_for_http());
 
     println!("Binding...");
-    axum::Server::bind(&"127.0.0.1:3000".parse().unwrap())
-        .serve(app.into_make_service())
-        .await
-        .unwrap();
+    axum::Server::bind(
+        &env::var("DOMAIN")
+            .expect("failed to bind!")
+            .parse()
+            .expect("failed to parse!"),
+    )
+    .serve(app.into_make_service())
+    .await
+    .unwrap();
 }
