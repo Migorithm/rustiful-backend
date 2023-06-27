@@ -11,7 +11,7 @@ pub mod service_tests {
 
     use service_library::domain::board::commands::{AddComment, CreateBoard, EditBoard};
     use service_library::domain::board::entity::BoardState;
-    use service_library::domain::commands::{ApplicationCommand, Command};
+    use service_library::domain::commands::Command;
 
     use service_library::services::unit_of_work::UnitOfWork;
     use uuid::Uuid;
