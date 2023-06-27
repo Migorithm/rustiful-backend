@@ -1347,6 +1347,7 @@ dependencies = [
  "sqlx",
  "time",
  "tokio",
+ "utoipa",
  "uuid",
 ]
 

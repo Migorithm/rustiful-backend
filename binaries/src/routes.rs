@@ -2,21 +2,18 @@ use axum::routing::post;
 use axum::Router;
 use axum::{extract::State, Json};
 
+use crate::error::{Exception, WebResponse};
+use service_library::domain::board::commands::*;
 use service_library::{adapters::database::AtomicConnection, services::messagebus::MessageBus};
 
-use crate::error::{Exception, WebResponse};
-use crate::schemas::{ToCommand, *};
-
 #[utoipa::path( post,  path = "/boards", request_body=CreateBoard)]
+#[axum_macros::debug_handler]
 pub async fn create_board(
     State(connection): State<AtomicConnection>,
     Json(cmd): Json<CreateBoard>,
-) -> Result<WebResponse, Exception> {
-    let mut bus = MessageBus::default();
-    let mut res = bus
-        .handle(cmd.to_command(), connection)
-        .await
-        .map_err(Exception)?;
+) -> Result<WebResponse<String>, Exception> {
+    let mut bus = MessageBus::<CreateBoard>::new();
+    let mut res = bus.handle(cmd, connection).await.map_err(Exception)?;
 
     Ok(WebResponse(res.pop_front().unwrap()))
 }
@@ -25,42 +22,33 @@ pub async fn create_board(
 pub async fn edit_board(
     State(connection): State<AtomicConnection>,
     Json(cmd): Json<EditBoard>,
-) -> Result<WebResponse, Exception> {
-    let mut bus = MessageBus::default();
-    let mut res = bus
-        .handle(cmd.to_command(), connection)
-        .await
-        .map_err(Exception)?;
+) -> Result<WebResponse<()>, Exception> {
+    let mut bus = MessageBus::<EditBoard>::new();
+    bus.handle(cmd, connection).await.map_err(Exception)?;
 
-    Ok(WebResponse(res.pop_front().unwrap()))
+    Ok(WebResponse(()))
 }
 
 #[utoipa::path(post, path = "/boards/comments",request_body=AddComment)]
 pub async fn add_comment(
     State(connection): State<AtomicConnection>,
     Json(cmd): Json<AddComment>,
-) -> Result<WebResponse, Exception> {
-    let mut bus = MessageBus::default();
-    let mut res = bus
-        .handle(cmd.to_command(), connection)
-        .await
-        .map_err(Exception)?;
+) -> Result<WebResponse<()>, Exception> {
+    let mut bus = MessageBus::<AddComment>::new();
+    bus.handle(cmd, connection).await.map_err(Exception)?;
 
-    Ok(WebResponse(res.pop_front().unwrap()))
+    Ok(WebResponse(()))
 }
 
 #[utoipa::path(patch, path = "/boards/comments",request_body=EditComment)]
 pub async fn edit_comment(
     State(connection): State<AtomicConnection>,
     Json(cmd): Json<EditComment>,
-) -> Result<WebResponse, Exception> {
-    let mut bus = MessageBus::default();
-    let mut res = bus
-        .handle(cmd.to_command(), connection)
-        .await
-        .map_err(Exception)?;
+) -> Result<WebResponse<()>, Exception> {
+    let mut bus = MessageBus::<EditComment>::new();
+    bus.handle(cmd, connection).await.map_err(Exception)?;
 
-    Ok(WebResponse(res.pop_front().unwrap()))
+    Ok(WebResponse(()))
 }
 
 pub fn board_routers() -> Router<AtomicConnection> {

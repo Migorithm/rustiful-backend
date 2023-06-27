@@ -1,6 +1,6 @@
 use axum::{http::StatusCode, response::IntoResponse, Json};
 use serde_json::json;
-use service_library::{domain::commands::ServiceResponse, utils::ApplicationError};
+use service_library::utils::ApplicationError;
 
 pub struct Exception(pub ApplicationError);
 
@@ -49,12 +49,22 @@ impl IntoResponse for Exception {
     }
 }
 
-pub struct WebResponse(pub ServiceResponse);
-impl IntoResponse for WebResponse {
+pub struct WebResponse<T>(pub T);
+
+impl From<String> for WebResponse<String> {
+    fn from(value: String) -> Self {
+        WebResponse(value)
+    }
+}
+
+impl IntoResponse for WebResponse<String> {
     fn into_response(self) -> axum::response::Response {
-        match self.0 {
-            ServiceResponse::String(val) => val.into_response(),
-            ServiceResponse::Bool(_) => "true".into_response(),
-        }
+        self.0.into_response()
+    }
+}
+
+impl IntoResponse for WebResponse<()> {
+    fn into_response(self) -> axum::response::Response {
+        ().into_response()
     }
 }

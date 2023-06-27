@@ -78,6 +78,7 @@ mod test_unit_of_work {
 
     use crate::adapters::database::Connection;
     use crate::adapters::repositories::TRepository;
+    use crate::domain::board::commands::CreateBoard;
     use crate::domain::board::{
         entity::{Board, BoardState},
         BoardAggregate,
@@ -151,12 +152,12 @@ mod test_unit_of_work {
                 let mut boardaggregate = builder.build();
 
                 // The following method on aggregate raises an event
-                boardaggregate.create_board(
-                    Uuid::new_v4(),
-                    "Title!".into(),
-                    "Content".into(),
-                    BoardState::Published,
-                );
+                boardaggregate.create_board(CreateBoard {
+                    author: Uuid::new_v4(),
+                    title: "Title!".into(),
+                    content: "Content".into(),
+                    state: BoardState::Published,
+                });
                 let id: String = boardaggregate.board.id.to_string();
 
                 let mut uow = uow.lock().await;

@@ -1,6 +1,5 @@
 mod error;
 mod routes;
-mod schemas;
 
 use axum::{
     http::{HeaderValue, Method},
@@ -8,6 +7,7 @@ use axum::{
 };
 use routes::board_routers;
 use service_library::adapters::database::{AtomicConnection, Connection};
+use service_library::domain::board::commands::*;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -30,10 +30,10 @@ async fn main() {
     ),
     components(
         schemas(
-            schemas::CreateBoard,
-            schemas::EditBoard,
-            schemas::AddComment,
-            schemas::EditComment)
+            CreateBoard,
+            EditBoard,
+            AddComment,
+            EditComment)
     ),
     tags(
         (name= "Rustiful Backend", description="This is for swagger integration")
