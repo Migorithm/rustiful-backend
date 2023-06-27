@@ -1,8 +1,11 @@
+#[allow(unused)]
 #[cfg(test)]
 pub mod functions {
 
+    use std::pin::Pin;
     use std::str::FromStr;
 
+    use futures::Future;
     use service_library::adapters::database::{AtomicConnection, Connection};
     use service_library::adapters::repositories::{Repository, TRepository};
 
@@ -13,13 +16,9 @@ pub mod functions {
     use service_library::domain::builder::{Buildable, Builder};
 
     use uuid::Uuid;
-    pub async fn get_connection() -> AtomicConnection {
-        dotenv().unwrap();
 
-        Connection::new().await.unwrap()
-    }
     pub async fn tear_down() {
-        let connection = get_connection().await;
+        let connection = Connection::new().await.unwrap();
         sqlx::query("TRUNCATE community_board, community_comment, auth_account, auth_token_stat,service_outbox")
             .execute(&connection.read().await.pool)
             .await
@@ -47,5 +46,14 @@ pub mod functions {
         let uuidfied = Uuid::from_str(id).expect("Not Uuidfiable!");
 
         Comment::new(uuidfied, Uuid::new_v4(), "노잼")
+    }
+
+    pub async fn run_test<T>(test: T) -> ()
+    where
+        T: Future<Output = ()>,
+    {
+        dotenv().unwrap();
+        Box::pin(test).await;
+        tear_down().await;
     }
 }
