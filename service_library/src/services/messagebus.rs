@@ -88,7 +88,7 @@ impl MessageBus {
         Ok(res)
     }
     fn init_event_handler() -> UOWMappedEventHandler<Box<dyn Message>> {
-        // TODO As there is a host of repetitive work, this is subject to macro. 
+        // TODO As there is a host of repetitive work, this is subject to macro.
         let mut uow_map: HashMap<TypeId, Vec<DIHandler<Box<dyn Message>, AtomicUnitOfWork>>> =
             HashMap::new();
         // uow_map.insert(event.type_id())
@@ -112,7 +112,7 @@ impl MessageBus {
     }
 
     fn init_command_handler() -> UOWMappedHandler<Box<dyn Any + Send + Sync>> {
-        // TODO As there is a host of repetitive work, this is subject to macro. 
+        // TODO As there is a host of repetitive work, this is subject to macro.
 
         let mut uow_map: HashMap<TypeId, DIHandler<Box<dyn Any + Send + Sync>, AtomicUnitOfWork>> =
             HashMap::new();

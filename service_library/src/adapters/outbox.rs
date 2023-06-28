@@ -1,15 +1,9 @@
 use chrono::{DateTime, Utc};
 
-use serde::{de::IntoDeserializer, Deserialize};
 use uuid::Uuid;
 
 use crate::{
-    domain::{
-        auth::events::{AccountCreated, AccountUpdated},
-        board::events::{BoardCommentAdded, BoardCreated, BoardUpdated},
-        commands::Command,
-        Message,
-    },
+    domain::{board::events::BoardCreated, commands::Command, Message},
     utils::{ApplicationError, ApplicationResult},
 };
 
@@ -25,6 +19,17 @@ pub struct Outbox {
     create_dt: DateTime<Utc>,
 }
 
+macro_rules! convert_event {
+    ( $obj:expr, $( $type: ty ), * ) => {
+        match $obj.topic.as_str() {
+          $(stringify!($type)=> serde_json::from_str::<$type>($obj.state.as_str()).expect("Given type not deserializable!").message_clone() ,)*
+          _ => {
+                panic!("Such event not allowed to process through outbox.");
+          }
+        }
+    };
+}
+
 impl Outbox {
     pub fn new(aggregate_id: String, topic: String, state: String) -> Self {
         Self {
@@ -37,24 +42,9 @@ impl Outbox {
         }
     }
     pub fn convert_event(&self) -> Box<dyn Message> {
-        match self.topic.as_str() {
-            "BoardCreated" => serde_json::from_str::<BoardCreated>(self.state.as_str())
-                .unwrap()
-                .message_clone(),
-            "BoardUpdated" => serde_json::from_str::<BoardUpdated>(self.state.as_str())
-                .unwrap()
-                .message_clone(),
-            "BoardCommentAdded" => serde_json::from_str::<BoardCommentAdded>(self.state.as_str())
-                .unwrap()
-                .message_clone(),
-            "AccountCreated" => serde_json::from_str::<AccountCreated>(self.state.as_str())
-                .unwrap()
-                .message_clone(),
-            "AccountUpdated" => serde_json::from_str::<AccountUpdated>(self.state.as_str())
-                .unwrap()
-                .message_clone(),
-            _ => panic!("Wrong Message!"),
-        }
+        // convert event. it takes outbox reference and target type that is to be deserialized.
+        // you can insert any number of desired type as long as it is outboxable type.
+        convert_event!(self, BoardCreated)
     }
     pub fn tag_processed(&mut self) {
         self.processed = true
