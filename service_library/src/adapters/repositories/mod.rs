@@ -14,16 +14,12 @@ use super::outbox::Outbox;
 /// The abstract central source for loading past events and committing new events.
 #[async_trait]
 pub trait TRepository {
-    type Aggregate: AsMut<Self::Aggregate>
-        + AsRef<Self::Aggregate>
-        + Aggregate<Event = Self::Event>
-        + Send
-        + Sync;
-    type Event: Message;
+    type Aggregate: AsMut<Self::Aggregate> + AsRef<Self::Aggregate> + Aggregate + Send + Sync;
+
     fn new(connection: AtomicConnection) -> Self;
 
-    fn get_events(&self) -> &VecDeque<Self::Event>;
-    fn set_events(&mut self, events: VecDeque<Self::Event>);
+    fn get_events(&self) -> &VecDeque<Box<dyn Message>>;
+    fn set_events(&mut self, events: VecDeque<Box<dyn Message>>);
 
     fn _collect_events(&mut self, mut aggregate: impl AsMut<Self::Aggregate> + Send + Sync) {
         self.set_events(aggregate.as_mut().collect_events())
@@ -68,9 +64,8 @@ pub trait TRepository {
     fn connection(&self) -> &AtomicConnection;
 }
 
-#[derive(Clone)]
-pub struct Repository<A: Aggregate<Event = E>, E> {
+pub struct Repository<A: Aggregate> {
     pub connection: AtomicConnection,
     pub _phantom: PhantomData<A>,
-    pub events: VecDeque<E>,
+    pub events: VecDeque<Box<dyn Message>>,
 }

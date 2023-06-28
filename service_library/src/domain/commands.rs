@@ -1,16 +1,10 @@
-use std::sync::Arc;
-
-use crate::services::{handlers::Future, unit_of_work::UnitOfWork};
+use crate::utils::ApplicationError;
 
 use serde::{self, Serialize};
 
-use tokio::sync::Mutex;
 use uuid::Uuid;
 
-pub trait Command: 'static + Send {
-    type Response;
-    fn handle(self, uow: Arc<Mutex<UnitOfWork>>) -> Future<Self::Response>;
-}
+pub trait Command: 'static + Send {}
 
 #[derive(Debug, Clone, Serialize)]
 pub enum ServiceResponse {
@@ -40,11 +34,34 @@ impl From<()> for ServiceResponse {
     }
 }
 
-impl From<ServiceResponse> for String {
-    fn from(value: ServiceResponse) -> Self {
-        let ServiceResponse::String(var) = value else{
-            panic!("Not possible")
-        }  ;
-        var
+impl TryFrom<ServiceResponse> for String {
+    type Error = ApplicationError;
+
+    fn try_from(value: ServiceResponse) -> Result<Self, Self::Error> {
+        match value {
+            ServiceResponse::String(val) => Ok(val),
+            _ => Err(ApplicationError::ParsingError),
+        }
+    }
+}
+
+impl TryFrom<ServiceResponse> for () {
+    type Error = ApplicationError;
+
+    fn try_from(value: ServiceResponse) -> Result<Self, Self::Error> {
+        match value {
+            ServiceResponse::Empty(()) => Ok(()),
+            _ => Err(ApplicationError::ParsingError),
+        }
+    }
+}
+
+impl TryFrom<ServiceResponse> for bool {
+    type Error = ApplicationError;
+    fn try_from(value: ServiceResponse) -> Result<Self, Self::Error> {
+        match value {
+            ServiceResponse::Bool(bool) => Ok(bool),
+            _ => Err(ApplicationError::ParsingError),
+        }
     }
 }

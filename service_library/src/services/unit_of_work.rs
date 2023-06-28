@@ -1,23 +1,20 @@
-use std::{any::Any, collections::VecDeque, mem, sync::Arc};
+use std::{collections::VecDeque, mem, sync::Arc};
 
 use tokio::sync::Mutex;
 
 use crate::adapters::repositories::{Repository, TRepository};
+use crate::domain::Message;
 use crate::{
     adapters::{database::AtomicConnection, outbox::Outbox},
-    domain::{
-        auth::{events::AuthEvent, AuthAggregate},
-        board::{events::BoardEvent, BoardAggregate},
-        AnyTrait,
-    },
+    domain::{auth::AuthAggregate, board::BoardAggregate},
     utils::ApplicationResult,
 };
 
 pub(crate) type AtomicUnitOfWork = Arc<Mutex<UnitOfWork>>;
 pub struct UnitOfWork {
     pub connection: AtomicConnection,
-    pub boards: Repository<BoardAggregate, BoardEvent>,
-    pub auths: Repository<AuthAggregate, AuthEvent>,
+    pub boards: Repository<BoardAggregate>,
+    pub auths: Repository<AuthAggregate>,
 }
 
 impl UnitOfWork {
@@ -57,16 +54,16 @@ impl UnitOfWork {
 
         Ok(())
     }
-    pub fn _collect_events(&mut self) -> VecDeque<Box<dyn Any + Send + Sync>> {
-        let mut events: VecDeque<Box<dyn Any + Send + Sync>> =
+    pub fn _collect_events(&mut self) -> VecDeque<Box<dyn Message>> {
+        let mut events: VecDeque<Box<dyn Message>> =
             VecDeque::with_capacity(self.boards.events.len() + self.auths.events.len());
         mem::take(&mut self.boards.events)
             .into_iter()
-            .for_each(|e| events.push_back(e.as_any()));
+            .for_each(|e| events.push_back(e));
 
         mem::take(&mut self.auths.events)
             .into_iter()
-            .for_each(|e| events.push_back(e.as_any()));
+            .for_each(|e| events.push_back(e));
         events
     }
 }

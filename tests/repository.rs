@@ -13,7 +13,6 @@ mod repository_tests {
     use service_library::domain::board::commands::EditBoard;
     use service_library::domain::board::entity::BoardState;
 
-    use service_library::domain::board::events::BoardEvent;
     use service_library::domain::board::BoardAggregate;
     use service_library::domain::builder::{Buildable, Builder};
 
@@ -93,7 +92,7 @@ mod repository_tests {
     async fn test_delete_board() {
         run_test(async {
             let connection = Connection::new().await.unwrap();
-            let mut board_repo: Repository<BoardAggregate, BoardEvent> =
+            let mut board_repo: Repository<BoardAggregate> =
                 board_repository_helper(connection.clone()).await;
 
             let id: String;
@@ -131,7 +130,7 @@ mod repository_tests {
     async fn test_update_board() {
         run_test(async {
             let connection = Connection::new().await.unwrap();
-            let mut board_repo: Repository<BoardAggregate, BoardEvent> =
+            let mut board_repo: Repository<BoardAggregate> =
                 board_repository_helper(connection.clone()).await;
             //* values for comparison, fetch
             let id: String;
@@ -182,7 +181,7 @@ mod repository_tests {
     async fn test_create_comment() {
         run_test(async {
             let connection = Connection::new().await.unwrap();
-            let mut board_repo: Repository<BoardAggregate, BoardEvent> =
+            let mut board_repo: Repository<BoardAggregate> =
                 board_repository_helper(connection.clone()).await;
             //* values for comparison, fetch
             let id: String;

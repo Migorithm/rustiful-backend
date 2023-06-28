@@ -1,9 +1,9 @@
 use crate::adapters::database::AtomicConnection;
 
 use crate::domain::board::entity::{Board, BoardState, Comment, CommentState};
-use crate::domain::board::events::BoardEvent;
+
 use crate::domain::board::BoardAggregate;
-use crate::domain::builder::*;
+use crate::domain::{builder::*, Message};
 
 use crate::utils::ApplicationError;
 use async_trait::async_trait;
@@ -17,9 +17,8 @@ use uuid::Uuid;
 use super::{Repository, TRepository};
 
 #[async_trait]
-impl TRepository for Repository<BoardAggregate, BoardEvent> {
+impl TRepository for Repository<BoardAggregate> {
     type Aggregate = BoardAggregate;
-    type Event = BoardEvent;
 
     fn new(connection: AtomicConnection) -> Self {
         Self {
@@ -28,10 +27,10 @@ impl TRepository for Repository<BoardAggregate, BoardEvent> {
             events: Default::default(),
         }
     }
-    fn get_events(&self) -> &VecDeque<Self::Event> {
+    fn get_events(&self) -> &VecDeque<Box<dyn Message>> {
         &self.events
     }
-    fn set_events(&mut self, events: VecDeque<Self::Event>) {
+    fn set_events(&mut self, events: VecDeque<Box<dyn Message>>) {
         self.events = events
     }
 

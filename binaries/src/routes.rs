@@ -13,7 +13,7 @@ pub async fn create_board(
     State(connection): State<AtomicConnection>,
     Json(cmd): Json<CreateBoard>,
 ) -> Result<WebResponse<ServiceResponse>, Exception> {
-    let mut bus = MessageBus::<CreateBoard>::new();
+    let mut bus = MessageBus::new();
     let res = bus.handle(cmd, connection).await.map_err(Exception)?;
 
     Ok(WebResponse(res))
@@ -24,7 +24,7 @@ pub async fn edit_board(
     State(connection): State<AtomicConnection>,
     Json(cmd): Json<EditBoard>,
 ) -> Result<WebResponse<ServiceResponse>, Exception> {
-    let mut bus = MessageBus::<EditBoard>::new();
+    let mut bus = MessageBus::new();
     let res = bus.handle(cmd, connection).await.map_err(Exception)?;
 
     Ok(WebResponse(res))
@@ -35,7 +35,7 @@ pub async fn add_comment(
     State(connection): State<AtomicConnection>,
     Json(cmd): Json<AddComment>,
 ) -> Result<WebResponse<ServiceResponse>, Exception> {
-    let mut bus = MessageBus::<AddComment>::new();
+    let mut bus = MessageBus::new();
     let res = bus.handle(cmd, connection).await.map_err(Exception)?;
 
     Ok(WebResponse(res))
@@ -46,7 +46,7 @@ pub async fn edit_comment(
     State(connection): State<AtomicConnection>,
     Json(cmd): Json<EditComment>,
 ) -> Result<WebResponse<ServiceResponse>, Exception> {
-    let mut bus = MessageBus::<EditComment>::new();
+    let mut bus = MessageBus::new();
     let res = bus.handle(cmd, connection).await.map_err(Exception)?;
 
     Ok(WebResponse(res))

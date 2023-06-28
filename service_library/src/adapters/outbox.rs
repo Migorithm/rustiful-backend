@@ -1,18 +1,15 @@
-use std::{any::Any, sync::Arc};
-
 use chrono::{DateTime, Utc};
 
-use tokio::sync::Mutex;
+use serde::{de::IntoDeserializer, Deserialize};
 use uuid::Uuid;
 
 use crate::{
     domain::{
-        auth::{self, events::AuthEvent},
-        board::{self, events::BoardEvent},
-        commands::{Command, ServiceResponse},
-        AnyTrait,
+        auth::events::{AccountCreated, AccountUpdated},
+        board::events::{BoardCommentAdded, BoardCreated, BoardUpdated},
+        commands::Command,
+        Message,
     },
-    services::{handlers::Future, unit_of_work::UnitOfWork},
     utils::{ApplicationError, ApplicationResult},
 };
 
@@ -39,16 +36,24 @@ impl Outbox {
             create_dt: Default::default(),
         }
     }
-    pub fn convert_event(&self) -> Box<dyn Any + Send + Sync> {
+    pub fn convert_event(&self) -> Box<dyn Message> {
         match self.topic.as_str() {
-            board::events::TOPIC => serde_json::from_str::<BoardEvent>(self.state.as_str())
+            "BoardCreated" => serde_json::from_str::<BoardCreated>(self.state.as_str())
                 .unwrap()
-                .as_any(),
-
-            auth::events::TOPIC => serde_json::from_str::<AuthEvent>(self.state.as_str())
+                .message_clone(),
+            "BoardUpdated" => serde_json::from_str::<BoardUpdated>(self.state.as_str())
                 .unwrap()
-                .as_any(),
-            _ => panic!("Not served!"),
+                .message_clone(),
+            "BoardCommentAdded" => serde_json::from_str::<BoardCommentAdded>(self.state.as_str())
+                .unwrap()
+                .message_clone(),
+            "AccountCreated" => serde_json::from_str::<AccountCreated>(self.state.as_str())
+                .unwrap()
+                .message_clone(),
+            "AccountUpdated" => serde_json::from_str::<AccountUpdated>(self.state.as_str())
+                .unwrap()
+                .message_clone(),
+            _ => panic!("Wrong Message!"),
         }
     }
     pub fn tag_processed(&mut self) {
@@ -110,19 +115,4 @@ impl Outbox {
     }
 }
 
-impl Command for Outbox {
-    type Response = ServiceResponse;
-    fn handle(self, uow: Arc<Mutex<UnitOfWork>>) -> Future<Self::Response> {
-        Box::pin(async move {
-            let msg = self.convert_event();
-            let mut uow = uow.lock().await;
-            uow.begin().await;
-
-            // ! Todo msg handling logic
-            self.update(&mut uow.connection).await?;
-
-            uow.commit().await?;
-            Ok(true.into())
-        })
-    }
-}
+impl Command for Outbox {}

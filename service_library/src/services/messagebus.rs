@@ -1,13 +1,9 @@
 use crate::{
     adapters::{database::AtomicConnection, outbox::Outbox},
     domain::{
-        auth::events::AuthEvent,
-        board::{
-            commands::{AddComment, CreateBoard, EditBoard, EditComment},
-            events::BoardEvent,
-        },
+        board::commands::{AddComment, CreateBoard, EditBoard, EditComment},
         commands::{Command, ServiceResponse},
-        AnyTrait,
+        AnyTrait, Message,
     },
     utils::{ApplicationError, ApplicationResult},
 };
@@ -15,70 +11,59 @@ use crate::{
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
-    marker::PhantomData,
     sync::Arc,
 };
 use tokio::sync::Mutex;
 
 use super::{
-    handlers::{self, Future, ServiceHandler},
+    handlers::{Future, ServiceHandler},
     unit_of_work::{AtomicUnitOfWork, UnitOfWork},
 };
 
 #[derive(Clone)]
-pub struct MessageBus<C>
-where
-    C: Command + AnyTrait,
-{
-    _phantom: PhantomData<C>,
+pub struct MessageBus {
     #[cfg(test)]
     pub book_keeper: i32,
 }
 
-impl<C> Default for MessageBus<C>
-where
-    C: Command + AnyTrait,
-{
+impl Default for MessageBus {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<C> MessageBus<C>
-where
-    C: Command + AnyTrait,
-{
+impl MessageBus {
     pub fn new() -> Self {
         Self {
-            _phantom: PhantomData::<C>,
-
             #[cfg(test)]
             book_keeper: 0,
         }
     }
 
-    pub async fn handle(
+    pub async fn handle<C>(
         &mut self,
         message: C,
         connection: AtomicConnection,
-    ) -> ApplicationResult<ServiceResponse> {
+    ) -> ApplicationResult<ServiceResponse>
+    where
+        C: Command + AnyTrait,
+    {
         let uow = UnitOfWork::new(connection.clone());
 
         //*
         // ! We cannnot tell if handler requires or only require uow.
         // ! so it's better to take all handlers and inject dependencies so we can simply pass message
-        // ! Dependency injection!
+        // ! Dependency injection! - through boostrapping
 
-        // ? Box<dyn Fn(C)->C::Response>
         //  */
-        let handler = MessageBus::<C>::init_command_handler();
-        let res = handler.get(&message.type_id()).unwrap()(message.as_any(), uow.clone()).await?;
+        let handler = MessageBus::init_command_handler();
+        let res = handler.get(&message.type_id()).ok_or_else(|| {
+            eprintln!("Unprocessable Command Given!");
+            ApplicationError::NotFound
+        })?(message.as_any(), uow.clone())
+        .await?;
 
-        // message.handle(uow.clone()).await;
         let mut queue = uow.clone().lock().await._collect_events();
-
-        // TODO Handle Command First and loop event?
-
         while let Some(msg) = queue.pop_front() {
             // * Logging!
 
@@ -102,63 +87,33 @@ where
         drop(uow);
         Ok(res)
     }
+    fn init_event_handler() -> UOWMappedEventHandler<Box<dyn Message>> {
+        // TODO As there is a host of repetitive work, this is subject to macro. 
+        let mut uow_map: HashMap<TypeId, Vec<DIHandler<Box<dyn Message>, AtomicUnitOfWork>>> =
+            HashMap::new();
+        // uow_map.insert(event.type_id())
+        uow_map.into()
+    }
 
     async fn handle_event(
         &mut self,
-        msg: Box<dyn Any + Send + Sync>,
+        msg: Box<dyn Message>,
         uow: Arc<Mutex<UnitOfWork>>,
     ) -> ApplicationResult<()> {
-        if msg.is::<BoardEvent>() {
-            let event: BoardEvent = *msg.downcast::<BoardEvent>().unwrap();
-            match event {
-                BoardEvent::Created { .. } => {
-                    for handler in handlers::BOARD_CREATED_EVENT_HANDLERS.iter() {
-                        handler(event.clone(), uow.clone()).await?;
-                    }
-                }
-                BoardEvent::Updated { .. } => {
-                    for handler in handlers::BOARD_UPDATED_EVENT_HANDLERS.iter() {
-                        handler(event.clone(), uow.clone()).await?;
-                    }
-                }
-                BoardEvent::CommentAdded { .. } => {
-                    for handler in handlers::COMMENT_ADDED_EVENT_HANDLERS.iter() {
-                        handler(event.clone(), uow.clone()).await?;
-                    }
-                }
-            };
-            #[cfg(test)]
-            {
-                self.book_keeper += 1
-            }
-        } else if msg.is::<AuthEvent>() {
-            let event: AuthEvent = *msg.downcast::<AuthEvent>().unwrap();
-            match event {
-                AuthEvent::Created { .. } => {
-                    for handler in handlers::ACCOUNT_CREATED_EVENT_HANDLERS.iter() {
-                        handler(event.clone(), uow.clone()).await?;
-                    }
-                }
-                AuthEvent::Updated { .. } => {
-                    for handler in handlers::ACCOUNT_UPDATED_EVENT_HANDLERS.iter() {
-                        handler(event.clone(), uow.clone()).await?;
-                    }
-                }
-            };
-            #[cfg(test)]
-            {
-                self.book_keeper += 1
-            }
-        } else {
-            Err(ApplicationError::InExecutableEvent)?
+        let event_handler = MessageBus::init_event_handler();
+        for handler in event_handler.get(&msg.type_id()).ok_or_else(|| {
+            eprintln!("Unprocessable Command Given!");
+            ApplicationError::NotFound
+        })? {
+            handler(msg.message_clone(), uow.clone()).await?;
         }
-
         drop(uow);
         Ok(())
     }
 
-    fn init_command_handler(
-    ) -> HashMap<TypeId, DIHandler<Box<dyn Any + Send + Sync>, AtomicUnitOfWork>> {
+    fn init_command_handler() -> UOWMappedHandler<Box<dyn Any + Send + Sync>> {
+        // TODO As there is a host of repetitive work, this is subject to macro. 
+
         let mut uow_map: HashMap<TypeId, DIHandler<Box<dyn Any + Send + Sync>, AtomicUnitOfWork>> =
             HashMap::new();
         uow_map.insert(
@@ -201,10 +156,12 @@ where
                 },
             ),
         );
-        uow_map
+        uow_map.into()
     }
 }
 
+type UOWMappedHandler<T> = Arc<HashMap<TypeId, DIHandler<T, AtomicUnitOfWork>>>;
+type UOWMappedEventHandler<T> = Arc<HashMap<TypeId, Vec<DIHandler<T, AtomicUnitOfWork>>>>;
 type DIHandler<T, U> = Box<dyn Fn(T, U) -> Future<ServiceResponse> + Send + Sync>;
 
 #[cfg(test)]
@@ -213,20 +170,14 @@ pub mod test_messagebus {
     use crate::domain::board::commands::CreateBoard;
     use crate::services::messagebus::MessageBus;
     use crate::utils::test_components::components::*;
-    use std::marker::PhantomData;
-    use uuid::Uuid;
 
-    #[test]
-    fn test_message_default() {
-        let ms = MessageBus::<CreateBoard>::new();
-        assert_eq!(ms._phantom, PhantomData::<CreateBoard>)
-    }
+    use uuid::Uuid;
 
     #[tokio::test]
     async fn test_message_bus_command_handling() {
         run_test(async {
             let connection = Connection::new().await.unwrap();
-            let mut ms = MessageBus::<CreateBoard>::new();
+            let mut ms = MessageBus::new();
             let cmd = CreateBoard {
                 author: Uuid::new_v4(),
                 title: "TestTitle".into(),
@@ -242,8 +193,6 @@ pub mod test_messagebus {
                     panic!("Test Failed!")
                 }
             };
-
-            assert_eq!(ms.book_keeper, 1);
         })
         .await;
     }

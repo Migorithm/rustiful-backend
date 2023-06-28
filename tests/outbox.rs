@@ -5,9 +5,9 @@ mod test_outbox {
     use crate::helpers::functions::*;
     use core::panic;
     use service_library::domain::board::commands::CreateBoard;
+    use service_library::domain::board::events::BoardCreated;
+    use service_library::services::handlers::ServiceHandler;
     use uuid::Uuid;
-
-    use service_library::domain::board::events::BoardEvent;
 
     use service_library::services::messagebus::MessageBus;
 
@@ -17,7 +17,7 @@ mod test_outbox {
             outbox::Outbox,
             repositories::TRepository,
         },
-        domain::{board::entity::BoardState, commands::Command},
+        domain::board::entity::BoardState,
         services::unit_of_work::UnitOfWork,
     };
 
@@ -30,14 +30,15 @@ mod test_outbox {
         };
 
         let uow = UnitOfWork::new(connection.clone());
-        match cmd.handle(uow.clone()).await {
+        match ServiceHandler::create_board(cmd, uow.clone()).await {
             Err(err) => '_fail_case: {
                 panic!("Service Handling Failed! {}", err)
             }
             Ok(response) => '_test: {
                 let uow = UnitOfWork::new(connection);
+                let id: String = response.try_into().unwrap();
 
-                if let Err(err) = uow.lock().await.boards.get(&response).await {
+                if let Err(err) = uow.lock().await.boards.get(&id).await {
                     panic!("Fetching newly created object failed! : {}", err);
                 };
             }
@@ -77,11 +78,11 @@ mod test_outbox {
 
                 assert_eq!(vec_of_outbox.len(), 1);
                 let event = vec_of_outbox.get(0).unwrap().convert_event();
-                assert!(event.is::<BoardEvent>());
+                assert!(event.externally_notifiable());
 
-                let converted = *event.downcast::<BoardEvent>().unwrap();
+                let converted = serde_json::from_str(&event.state()).unwrap();
                 match converted {
-                    BoardEvent::Created { .. } => {
+                    BoardCreated { .. } => {
                         println!("Success!")
                     }
                     _ => {
@@ -100,7 +101,7 @@ mod test_outbox {
             outbox_setup(connection.clone()).await;
 
             '_test_case: {
-                let mut bus = MessageBus::<Outbox>::new();
+                let mut bus = MessageBus::new();
 
                 for e in Outbox::get(connection.clone()).await.unwrap() {
                     match bus.handle(e, connection.clone()).await {
