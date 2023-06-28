@@ -69,7 +69,7 @@ impl BoardAggregate {
         self.board.state = BoardState::Deleted
     }
 
-    fn edit_comment(&mut self, cmd: EditComment) -> ApplicationResult<()> {
+    pub fn edit_comment(&mut self, cmd: EditComment) -> ApplicationResult<()> {
         let comment = self
             .comments
             .iter_mut()

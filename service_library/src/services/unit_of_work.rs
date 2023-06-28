@@ -13,6 +13,7 @@ use crate::{
     utils::ApplicationResult,
 };
 
+pub(crate) type AtomicUnitOfWork = Arc<Mutex<UnitOfWork>>;
 pub struct UnitOfWork {
     pub connection: AtomicConnection,
     pub boards: Repository<BoardAggregate, BoardEvent>,

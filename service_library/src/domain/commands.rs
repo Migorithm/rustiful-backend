@@ -7,7 +7,7 @@ use serde::{self, Serialize};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-pub trait Command: Sized + 'static + Send {
+pub trait Command: 'static + Send {
     type Response;
     fn handle(self, uow: Arc<Mutex<UnitOfWork>>) -> Future<Self::Response>;
 }
@@ -16,6 +16,7 @@ pub trait Command: Sized + 'static + Send {
 pub enum ServiceResponse {
     String(String),
     Bool(bool),
+    Empty(()),
 }
 
 impl From<String> for ServiceResponse {
@@ -31,5 +32,19 @@ impl From<Uuid> for ServiceResponse {
 impl From<bool> for ServiceResponse {
     fn from(value: bool) -> Self {
         ServiceResponse::Bool(value)
+    }
+}
+impl From<()> for ServiceResponse {
+    fn from(_value: ()) -> Self {
+        ServiceResponse::Empty(())
+    }
+}
+
+impl From<ServiceResponse> for String {
+    fn from(value: ServiceResponse) -> Self {
+        let ServiceResponse::String(var) = value else{
+            panic!("Not possible")
+        }  ;
+        var
     }
 }

@@ -1,13 +1,29 @@
 use crate::{
     adapters::database::AtomicConnection,
-    domain::{auth::events::AuthEvent, board::events::BoardEvent, commands::Command, AnyTrait},
+    domain::{
+        auth::events::AuthEvent,
+        board::{
+            commands::{AddComment, CreateBoard, EditBoard, EditComment},
+            events::BoardEvent,
+        },
+        commands::{Command, ServiceResponse},
+        AnyTrait,
+    },
     utils::{ApplicationError, ApplicationResult},
 };
 
-use std::{any::Any, marker::PhantomData, sync::Arc};
+use std::{
+    any::{Any, TypeId},
+    collections::HashMap,
+    marker::PhantomData,
+    sync::Arc,
+};
 use tokio::sync::Mutex;
 
-use super::{handlers, unit_of_work::UnitOfWork};
+use super::{
+    handlers::{self, Future, ServiceHandler},
+    unit_of_work::{AtomicUnitOfWork, UnitOfWork},
+};
 
 #[derive(Clone)]
 pub struct MessageBus<C>
@@ -45,9 +61,20 @@ where
         &mut self,
         message: C,
         connection: AtomicConnection,
-    ) -> ApplicationResult<C::Response> {
+    ) -> ApplicationResult<ServiceResponse> {
         let uow = UnitOfWork::new(connection.clone());
-        let res = message.handle(uow.clone()).await;
+
+        //*
+        // ! We cannnot tell if handler requires or only require uow.
+        // ! so it's better to take all handlers and inject dependencies so we can simply pass message
+        // ! Dependency injection!
+
+        // ? Box<dyn Fn(C)->C::Response>
+        //  */
+        let handler = MessageBus::<C>::init_command_handler();
+        let res = handler.get(&message.type_id()).unwrap()(message.as_any(), uow.clone()).await?;
+
+        // message.handle(uow.clone()).await;
         let mut queue = uow.clone().lock().await._collect_events();
 
         // TODO Handle Command First and loop event?
@@ -73,7 +100,7 @@ where
             }
         }
         drop(uow);
-        res
+        Ok(res)
     }
 
     async fn handle_event(
@@ -129,19 +156,56 @@ where
         drop(uow);
         Ok(())
     }
+
+    fn init_command_handler(
+    ) -> HashMap<TypeId, DIHandler<Box<dyn Any + Send + Sync>, AtomicUnitOfWork>> {
+        let mut uow_map: HashMap<TypeId, DIHandler<Box<dyn Any + Send + Sync>, AtomicUnitOfWork>> =
+            HashMap::new();
+        uow_map.insert(
+            TypeId::of::<CreateBoard>(),
+            Box::new(
+                |c: Box<dyn Any + Send + Sync>, uow: AtomicUnitOfWork| -> Future<ServiceResponse> {
+                    ServiceHandler::create_board(*c.downcast::<CreateBoard>().unwrap(), uow)
+                },
+            ),
+        );
+        uow_map.insert(
+            TypeId::of::<EditBoard>(),
+            Box::new(
+                |c: Box<dyn Any + Send + Sync>, uow: AtomicUnitOfWork| -> Future<ServiceResponse> {
+                    ServiceHandler::edit_board(*c.downcast::<EditBoard>().unwrap(), uow)
+                },
+            ),
+        );
+        uow_map.insert(
+            TypeId::of::<AddComment>(),
+            Box::new(
+                |c: Box<dyn Any + Send + Sync>, uow: AtomicUnitOfWork| -> Future<ServiceResponse> {
+                    ServiceHandler::add_comment(*c.downcast::<AddComment>().unwrap(), uow)
+                },
+            ),
+        );
+        uow_map.insert(
+            TypeId::of::<EditComment>(),
+            Box::new(
+                |c: Box<dyn Any + Send + Sync>, uow: AtomicUnitOfWork| -> Future<ServiceResponse> {
+                    ServiceHandler::edit_comment(*c.downcast::<EditComment>().unwrap(), uow)
+                },
+            ),
+        );
+        uow_map
+    }
 }
+
+type DIHandler<T, U> = Box<dyn Fn(T, U) -> Future<ServiceResponse> + Send + Sync>;
 
 #[cfg(test)]
 pub mod test_messagebus {
-
-    use std::marker::PhantomData;
-
     use crate::adapters::database::Connection;
     use crate::domain::board::commands::CreateBoard;
-
     use crate::services::messagebus::MessageBus;
     use crate::utils::test_components::components::*;
-
+    use std::marker::PhantomData;
     use uuid::Uuid;
 
     #[test]
