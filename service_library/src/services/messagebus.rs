@@ -15,7 +15,6 @@ use crate::{
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
-    marker::PhantomData,
     sync::Arc,
 };
 use tokio::sync::Mutex;
@@ -26,53 +25,47 @@ use super::{
 };
 
 #[derive(Clone)]
-pub struct MessageBus<C>
-where
-    C: Command + AnyTrait,
-{
-    _phantom: PhantomData<C>,
+pub struct MessageBus {
     #[cfg(test)]
     pub book_keeper: i32,
 }
 
-impl<C> Default for MessageBus<C>
-where
-    C: Command + AnyTrait,
-{
+impl Default for MessageBus {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<C> MessageBus<C>
-where
-    C: Command + AnyTrait,
-{
+impl MessageBus {
     pub fn new() -> Self {
         Self {
-            _phantom: PhantomData::<C>,
-
             #[cfg(test)]
             book_keeper: 0,
         }
     }
 
-    pub async fn handle(
+    pub async fn handle<C>(
         &mut self,
         message: C,
         connection: AtomicConnection,
-    ) -> ApplicationResult<ServiceResponse> {
+    ) -> ApplicationResult<ServiceResponse>
+    where
+        C: Command + AnyTrait,
+    {
         let uow = UnitOfWork::new(connection.clone());
 
         //*
         // ! We cannnot tell if handler requires or only require uow.
         // ! so it's better to take all handlers and inject dependencies so we can simply pass message
         // ! Dependency injection!
-
-        // ? Box<dyn Fn(C)->C::Response>
+        
         //  */
-        let handler = MessageBus::<C>::init_command_handler();
-        let res = handler.get(&message.type_id()).unwrap()(message.as_any(), uow.clone()).await?;
+        let handler = MessageBus::init_command_handler();
+        let res = handler.get(&message.type_id()).ok_or_else(|| {
+            eprintln!("Unprocessable Command Given!");
+            ApplicationError::NotFound
+        })?(message.as_any(), uow.clone())
+        .await?;
 
         // message.handle(uow.clone()).await;
         let mut queue = uow.clone().lock().await._collect_events();
@@ -157,8 +150,7 @@ where
         Ok(())
     }
 
-    fn init_command_handler(
-    ) -> HashMap<TypeId, DIHandler<Box<dyn Any + Send + Sync>, AtomicUnitOfWork>> {
+    fn init_command_handler() -> UOWMappedHandler {
         let mut uow_map: HashMap<TypeId, DIHandler<Box<dyn Any + Send + Sync>, AtomicUnitOfWork>> =
             HashMap::new();
         uow_map.insert(
@@ -201,10 +193,12 @@ where
                 },
             ),
         );
-        uow_map
+        uow_map.into()
     }
 }
 
+type UOWMappedHandler =
+    Arc<HashMap<TypeId, DIHandler<Box<dyn Any + Send + Sync>, AtomicUnitOfWork>>>;
 type DIHandler<T, U> = Box<dyn Fn(T, U) -> Future<ServiceResponse> + Send + Sync>;
 
 #[cfg(test)]
@@ -213,20 +207,14 @@ pub mod test_messagebus {
     use crate::domain::board::commands::CreateBoard;
     use crate::services::messagebus::MessageBus;
     use crate::utils::test_components::components::*;
-    use std::marker::PhantomData;
-    use uuid::Uuid;
 
-    #[test]
-    fn test_message_default() {
-        let ms = MessageBus::<CreateBoard>::new();
-        assert_eq!(ms._phantom, PhantomData::<CreateBoard>)
-    }
+    use uuid::Uuid;
 
     #[tokio::test]
     async fn test_message_bus_command_handling() {
         run_test(async {
             let connection = Connection::new().await.unwrap();
-            let mut ms = MessageBus::<CreateBoard>::new();
+            let mut ms = MessageBus::new();
             let cmd = CreateBoard {
                 author: Uuid::new_v4(),
                 title: "TestTitle".into(),

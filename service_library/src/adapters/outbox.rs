@@ -1,18 +1,16 @@
-use std::{any::Any, sync::Arc};
+use std::any::Any;
 
 use chrono::{DateTime, Utc};
 
-use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::{
     domain::{
         auth::{self, events::AuthEvent},
         board::{self, events::BoardEvent},
-        commands::{Command, ServiceResponse},
+        commands::Command,
         AnyTrait,
     },
-    services::{handlers::Future, unit_of_work::UnitOfWork},
     utils::{ApplicationError, ApplicationResult},
 };
 
@@ -110,19 +108,4 @@ impl Outbox {
     }
 }
 
-impl Command for Outbox {
-    type Response = ServiceResponse;
-    fn handle(self, uow: Arc<Mutex<UnitOfWork>>) -> Future<Self::Response> {
-        Box::pin(async move {
-            let msg = self.convert_event();
-            let mut uow = uow.lock().await;
-            uow.begin().await;
-
-            // ! Todo msg handling logic
-            self.update(&mut uow.connection).await?;
-
-            uow.commit().await?;
-            Ok(true.into())
-        })
-    }
-}
+impl Command for Outbox {}
