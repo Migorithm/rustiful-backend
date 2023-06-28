@@ -1,11 +1,7 @@
 use crate::{
     adapters::{database::AtomicConnection, outbox::Outbox},
     domain::{
-        auth::events::AuthEvent,
-        board::{
-            commands::{AddComment, CreateBoard, EditBoard, EditComment},
-            events::BoardEvent,
-        },
+        board::commands::{AddComment, CreateBoard, EditBoard, EditComment},
         commands::{Command, ServiceResponse},
         AnyTrait, Message,
     },
@@ -20,7 +16,7 @@ use std::{
 use tokio::sync::Mutex;
 
 use super::{
-    handlers::{self, Future, ServiceHandler},
+    handlers::{Future, ServiceHandler},
     unit_of_work::{AtomicUnitOfWork, UnitOfWork},
 };
 
@@ -57,7 +53,7 @@ impl MessageBus {
         //*
         // ! We cannnot tell if handler requires or only require uow.
         // ! so it's better to take all handlers and inject dependencies so we can simply pass message
-        // ! Dependency injection!
+        // ! Dependency injection! - through boostrapping
 
         //  */
         let handler = MessageBus::init_command_handler();
@@ -92,6 +88,7 @@ impl MessageBus {
         Ok(res)
     }
     fn init_event_handler() -> UOWMappedEventHandler<Box<dyn Message>> {
+        // TODO As there is a host of repetitive work, this is subject to macro. 
         let mut uow_map: HashMap<TypeId, Vec<DIHandler<Box<dyn Message>, AtomicUnitOfWork>>> =
             HashMap::new();
         // uow_map.insert(event.type_id())
@@ -115,6 +112,8 @@ impl MessageBus {
     }
 
     fn init_command_handler() -> UOWMappedHandler<Box<dyn Any + Send + Sync>> {
+        // TODO As there is a host of repetitive work, this is subject to macro. 
+
         let mut uow_map: HashMap<TypeId, DIHandler<Box<dyn Any + Send + Sync>, AtomicUnitOfWork>> =
             HashMap::new();
         uow_map.insert(

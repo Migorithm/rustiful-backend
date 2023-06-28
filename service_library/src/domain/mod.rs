@@ -5,8 +5,6 @@ pub mod commands;
 
 use std::{any::Any, collections::VecDeque};
 
-use serde::Serialize;
-
 use crate::adapters::outbox::Outbox;
 
 pub trait AnyTrait: Any {
@@ -19,21 +17,19 @@ impl<T: Any + Clone + Send + Sync> AnyTrait for T {
     }
 }
 
-pub trait MessageClone {
-    fn message_clone(&self) -> Box<dyn Message>;
-}
-
-pub trait Message: Any + Sync + Send + MessageClone {
+pub trait Message: Any + Sync + Send {
     fn externally_notifiable(&self) -> bool {
         false
     }
+    fn topic(&self) -> &str;
 
     fn metadata(&self) -> MessageMetadata;
-    fn state(&self) -> String;
     fn outbox(&self) -> Outbox {
         let metadata = self.metadata();
         Outbox::new(metadata.aggregate_id, metadata.topic, self.state())
     }
+    fn message_clone(&self) -> Box<dyn Message>;
+    fn state(&self) -> String;
 }
 
 pub struct MessageMetadata {

@@ -1,4 +1,4 @@
-use std::{any::Any, collections::VecDeque, mem, sync::Arc};
+use std::{collections::VecDeque, mem, sync::Arc};
 
 use tokio::sync::Mutex;
 
@@ -6,10 +6,7 @@ use crate::adapters::repositories::{Repository, TRepository};
 use crate::domain::Message;
 use crate::{
     adapters::{database::AtomicConnection, outbox::Outbox},
-    domain::{
-        auth::{events::AuthEvent, AuthAggregate},
-        board::{events::BoardEvent, BoardAggregate},
-    },
+    domain::{auth::AuthAggregate, board::BoardAggregate},
     utils::ApplicationResult,
 };
 

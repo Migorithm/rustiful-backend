@@ -13,7 +13,6 @@ mod repository_tests {
     use service_library::domain::board::commands::EditBoard;
     use service_library::domain::board::entity::BoardState;
 
-    use service_library::domain::board::events::BoardEvent;
     use service_library::domain::board::BoardAggregate;
     use service_library::domain::builder::{Buildable, Builder};
 

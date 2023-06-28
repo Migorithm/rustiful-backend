@@ -7,7 +7,8 @@ use crate::utils::{ApplicationError, ApplicationResult};
 
 use self::commands::{AddComment, CreateBoard, EditBoard, EditComment};
 use self::entity::{Board, BoardState, Comment};
-use self::events::BoardEvent;
+use self::events::{BoardCommentAdded, BoardCreated, BoardUpdated};
+
 use super::builder::{Buildable, Builder};
 
 use super::{Aggregate, Message};
@@ -34,7 +35,7 @@ pub struct BoardAggregate {
 impl BoardAggregate {
     pub fn create_board(&mut self, cmd: CreateBoard) {
         self.board = Board::new(cmd.author, cmd.title, cmd.content, cmd.state);
-        self.raise_event(Box::new(BoardEvent::Created {
+        self.raise_event(Box::new(BoardCreated {
             id: self.board.id,
             author: self.board.author,
             title: self.board.title.clone(),
@@ -52,7 +53,7 @@ impl BoardAggregate {
         if let Some(ref state) = cmd.state {
             self.board.state = state.clone()
         }
-        self.raise_event(Box::new(BoardEvent::Updated {
+        self.raise_event(Box::new(BoardUpdated {
             id: self.board.id,
             title: cmd.title,
             content: cmd.content,
@@ -60,9 +61,16 @@ impl BoardAggregate {
         }))
     }
     pub fn add_comment(&mut self, cmd: AddComment) {
-        self.comments
-            .push(Comment::new(self.board.id, cmd.author, &cmd.content))
+        let new_comment = Comment::new(self.board.id, cmd.author, &cmd.content);
+        self.raise_event(Box::new(BoardCommentAdded {
+            id: new_comment.id,
+            author: new_comment.author,
+            content: new_comment.content.clone(),
+            state: new_comment.state.clone(),
+        }));
+        self.comments.push(new_comment);
     }
+
     pub fn delete(&mut self) {
         self.board.state = BoardState::Deleted
     }

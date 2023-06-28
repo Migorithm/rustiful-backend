@@ -2,9 +2,9 @@ use std::pin::Pin;
 
 use crate::adapters::outbox::Outbox;
 use crate::adapters::repositories::TRepository;
-use crate::domain::auth::events::AuthEvent;
+
 use crate::domain::board::commands::{AddComment, CreateBoard, EditBoard, EditComment};
-use crate::domain::board::events::BoardEvent;
+
 use crate::domain::board::BoardAggregate;
 
 use crate::domain::builder::{Buildable, Builder};
@@ -85,9 +85,7 @@ impl ServiceHandler {
     }
 }
 
-pub(crate) static BOARD_CREATED_EVENT_HANDLERS: [EventHandler<BoardEvent>; 0] = [];
-pub(crate) static BOARD_UPDATED_EVENT_HANDLERS: [EventHandler<BoardEvent>; 0] = [];
-pub(crate) static COMMENT_ADDED_EVENT_HANDLERS: [EventHandler<BoardEvent>; 0] = [];
-
-pub(crate) static ACCOUNT_CREATED_EVENT_HANDLERS: [EventHandler<AuthEvent>; 0] = [];
-pub(crate) static ACCOUNT_UPDATED_EVENT_HANDLERS: [EventHandler<AuthEvent>; 0] = [];
+// TODO Defining event Event
+// pub(crate) static BOARD_CREATED_EVENT_HANDLERS: [EventHandler<BoardEvent>; 0] = [];
+// pub(crate) static BOARD_UPDATED_EVENT_HANDLERS: [EventHandler<BoardEvent>; 0] = [];
+// pub(crate) static COMMENT_ADDED_EVENT_HANDLERS: [EventHandler<BoardEvent>; 0] = [];

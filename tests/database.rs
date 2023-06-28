@@ -9,7 +9,7 @@ pub mod database_tests {
             database::Connection,
             repositories::{Repository, TRepository},
         },
-        domain::board::{entity::BoardState, events::BoardEvent, BoardAggregate},
+        domain::board::{entity::BoardState, BoardAggregate},
     };
 
     #[tokio::test]

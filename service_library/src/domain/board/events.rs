@@ -1,58 +1,97 @@
 use uuid::Uuid;
 
 use super::entity::{BoardState, CommentState};
-use crate::domain::{Message, MessageClone, MessageMetadata};
+use crate::domain::{Message, MessageMetadata};
 use serde::{Deserialize, Serialize};
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, Clone, Hash)]
-pub enum BoardEvent {
-    Created {
-        id: Uuid,
-        author: Uuid,
-        title: String,
-        content: String,
-        state: BoardState,
-    },
-    Updated {
-        id: Uuid,
-        title: Option<String>,
-        content: Option<String>,
-        state: Option<BoardState>,
-    },
-    CommentAdded {
-        id: Uuid,
-        author: Uuid,
-        content: String,
-        state: CommentState,
-    },
+pub struct BoardCreated {
+    pub(crate) id: Uuid,
+    pub(crate) author: Uuid,
+    pub(crate) title: String,
+    pub(crate) content: String,
+    pub(crate) state: BoardState,
 }
-pub const TOPIC: &str = "board";
 
-impl Message for BoardEvent {
+#[derive(Eq, PartialEq, Serialize, Deserialize, Clone, Hash)]
+pub struct BoardUpdated {
+    pub(crate) id: Uuid,
+    pub(crate) title: Option<String>,
+    pub(crate) content: Option<String>,
+    pub(crate) state: Option<BoardState>,
+}
+
+#[derive(Eq, PartialEq, Serialize, Deserialize, Clone, Hash)]
+pub struct BoardCommentAdded {
+    pub(crate) id: Uuid,
+    pub(crate) author: Uuid,
+    pub(crate) content: String,
+    pub(crate) state: CommentState,
+}
+
+impl Message for BoardCreated {
     fn metadata(&self) -> MessageMetadata {
-        match self {
-            Self::Created { id, .. } | Self::Updated { id, .. } | Self::CommentAdded { id, .. } => {
-                MessageMetadata {
-                    aggregate_id: id.to_string(),
-                    topic: TOPIC.into(),
-                }
-            }
+        MessageMetadata {
+            aggregate_id: self.id.to_string(),
+            topic: self.topic().into(),
         }
+    }
+    fn externally_notifiable(&self) -> bool {
+        true
+    }
+
+    fn topic(&self) -> &str {
+        "BoardCreated"
+    }
+
+    fn message_clone(&self) -> Box<dyn Message> {
+        Box::new(self.clone())
     }
     fn state(&self) -> String {
         serde_json::to_string(&self).expect("Failed to serialize")
     }
+}
 
-    fn externally_notifiable(&self) -> bool {
-        match self {
-            Self::Created { .. } => true,
-            Self::Updated { .. } => false,
-            Self::CommentAdded { .. } => false,
+impl Message for BoardUpdated {
+    fn metadata(&self) -> MessageMetadata {
+        MessageMetadata {
+            aggregate_id: self.id.to_string(),
+            topic: self.topic().into(),
         }
     }
-}
-impl MessageClone for BoardEvent {
+    fn externally_notifiable(&self) -> bool {
+        false
+    }
+    fn topic(&self) -> &str {
+        "BoardUpdated"
+    }
+
     fn message_clone(&self) -> Box<dyn Message> {
         Box::new(self.clone())
+    }
+    fn state(&self) -> String {
+        serde_json::to_string(&self).expect("Failed to serialize")
+    }
+}
+
+impl Message for BoardCommentAdded {
+    fn metadata(&self) -> MessageMetadata {
+        MessageMetadata {
+            aggregate_id: self.id.to_string(),
+            topic: self.topic().into(),
+        }
+    }
+    fn externally_notifiable(&self) -> bool {
+        false
+    }
+    fn topic(&self) -> &str {
+        "BoardCommentAdded"
+    }
+
+    fn message_clone(&self) -> Box<dyn Message> {
+        Box::new(self.clone())
+    }
+    fn state(&self) -> String {
+        serde_json::to_string(&self).expect("Failed to serialize")
     }
 }

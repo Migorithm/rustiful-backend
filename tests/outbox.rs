@@ -5,10 +5,9 @@ mod test_outbox {
     use crate::helpers::functions::*;
     use core::panic;
     use service_library::domain::board::commands::CreateBoard;
+    use service_library::domain::board::events::BoardCreated;
     use service_library::services::handlers::ServiceHandler;
     use uuid::Uuid;
-
-    use service_library::domain::board::events::BoardEvent;
 
     use service_library::services::messagebus::MessageBus;
 
@@ -79,11 +78,11 @@ mod test_outbox {
 
                 assert_eq!(vec_of_outbox.len(), 1);
                 let event = vec_of_outbox.get(0).unwrap().convert_event();
-                assert!(event.is::<BoardEvent>());
+                assert!(event.externally_notifiable());
 
-                let converted = *event.downcast::<BoardEvent>().unwrap();
+                let converted = serde_json::from_str(&event.state()).unwrap();
                 match converted {
-                    BoardEvent::Created { .. } => {
+                    BoardCreated { .. } => {
                         println!("Success!")
                     }
                     _ => {

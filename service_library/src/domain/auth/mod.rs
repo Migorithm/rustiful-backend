@@ -2,10 +2,7 @@ mod entity;
 pub mod events;
 use std::{collections::VecDeque, mem};
 
-use self::{
-    entity::{Account, TokenStat},
-    events::AuthEvent,
-};
+use self::entity::{Account, TokenStat};
 
 use super::{
     builder::{Buildable, Builder},

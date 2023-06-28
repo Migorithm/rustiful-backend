@@ -11,7 +11,7 @@ pub mod functions {
 
     use dotenv::dotenv;
     use service_library::domain::board::entity::{Board, BoardState, Comment};
-    use service_library::domain::board::events::BoardEvent;
+
     use service_library::domain::board::BoardAggregate;
     use service_library::domain::builder::{Buildable, Builder};
 
