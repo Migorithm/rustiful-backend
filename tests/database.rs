@@ -35,7 +35,7 @@ pub mod database_tests {
             // TODO test under same connection.
             connection.write().await.begin().await.unwrap();
             // let trx: Transactions = connection.begin().await.unwrap();
-            let mut board_repo: Repository<BoardAggregate, BoardEvent> =
+            let mut board_repo: Repository<BoardAggregate> =
                 board_repository_helper(connection.clone()).await;
 
             let mut board_aggregate = board_create_helper(BoardState::Unpublished);

@@ -1,19 +1,17 @@
 use std::collections::VecDeque;
 
-use crate::adapters::database::AtomicConnection;
+use crate::{adapters::database::AtomicConnection, domain::Message};
 
 use crate::domain::auth::AuthAggregate;
 
-use crate::domain::auth::events::AuthEvent;
 use crate::utils::ApplicationError;
 use async_trait::async_trait;
 
 use super::{Repository, TRepository};
 
 #[async_trait]
-impl TRepository for Repository<AuthAggregate, AuthEvent> {
+impl TRepository for Repository<AuthAggregate> {
     type Aggregate = AuthAggregate;
-    type Event = AuthEvent;
 
     fn new(connection: AtomicConnection) -> Self {
         Self {
@@ -22,10 +20,10 @@ impl TRepository for Repository<AuthAggregate, AuthEvent> {
             events: Default::default(),
         }
     }
-    fn get_events(&self) -> &VecDeque<Self::Event> {
+    fn get_events(&self) -> &VecDeque<Box<dyn Message>> {
         &self.events
     }
-    fn set_events(&mut self, events: VecDeque<Self::Event>) {
+    fn set_events(&mut self, events: VecDeque<Box<dyn Message>>) {
         self.events = events
     }
 

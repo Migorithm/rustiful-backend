@@ -19,19 +19,20 @@ impl<T: Any + Clone + Send + Sync> AnyTrait for T {
     }
 }
 
-pub trait Message: Any + Sync + Send + Serialize {
+pub trait MessageClone {
+    fn message_clone(&self) -> Box<dyn Message>;
+}
+
+pub trait Message: Any + Sync + Send + MessageClone {
     fn externally_notifiable(&self) -> bool {
         false
     }
 
-    fn get_metadata(&self) -> MessageMetadata;
+    fn metadata(&self) -> MessageMetadata;
+    fn state(&self) -> String;
     fn outbox(&self) -> Outbox {
-        let metadata = self.get_metadata();
-        Outbox::new(
-            metadata.aggregate_id,
-            metadata.topic,
-            serde_json::to_string(&self).expect("Failed to serialize"),
-        )
+        let metadata = self.metadata();
+        Outbox::new(metadata.aggregate_id, metadata.topic, self.state())
     }
 }
 
@@ -41,18 +42,17 @@ pub struct MessageMetadata {
 }
 
 pub trait Aggregate: Send + Sync {
-    type Event;
-    fn collect_events(&mut self) -> VecDeque<Self::Event> {
+    fn collect_events(&mut self) -> VecDeque<Box<dyn Message>> {
         if !self.events().is_empty() {
             self.take_events()
         } else {
             VecDeque::new()
         }
     }
-    fn events(&self) -> &VecDeque<Self::Event>;
+    fn events(&self) -> &VecDeque<Box<dyn Message>>;
 
-    fn take_events(&mut self) -> VecDeque<Self::Event>;
-    fn raise_event(&mut self, event: Self::Event);
+    fn take_events(&mut self) -> VecDeque<Box<dyn Message>>;
+    fn raise_event(&mut self, event: Box<dyn Message>);
 }
 
 trait State {

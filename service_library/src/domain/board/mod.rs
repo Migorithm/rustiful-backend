@@ -10,39 +10,37 @@ use self::entity::{Board, BoardState, Comment};
 use self::events::BoardEvent;
 use super::builder::{Buildable, Builder};
 
-use super::Aggregate;
+use super::{Aggregate, Message};
 
 impl Aggregate for BoardAggregate {
-    type Event = BoardEvent;
-
-    fn events(&self) -> &VecDeque<Self::Event> {
+    fn events(&self) -> &VecDeque<Box<dyn Message>> {
         &self.events
     }
-    fn take_events(&mut self) -> VecDeque<Self::Event> {
+    fn take_events(&mut self) -> VecDeque<Box<dyn Message>> {
         mem::take(&mut self.events)
     }
-    fn raise_event(&mut self, event: Self::Event) {
+    fn raise_event(&mut self, event: Box<dyn Message>) {
         self.events.push_back(event)
     }
 }
 
 #[derive(Default)]
 pub struct BoardAggregate {
-    pub board: Board,                 // Root
-    pub comments: Vec<Comment>,       // Entity
-    pub events: VecDeque<BoardEvent>, //Event
+    pub board: Board,                       // Root
+    pub comments: Vec<Comment>,             // Entity
+    pub events: VecDeque<Box<dyn Message>>, //Event
 }
 
 impl BoardAggregate {
     pub fn create_board(&mut self, cmd: CreateBoard) {
         self.board = Board::new(cmd.author, cmd.title, cmd.content, cmd.state);
-        self.raise_event(BoardEvent::Created {
+        self.raise_event(Box::new(BoardEvent::Created {
             id: self.board.id,
             author: self.board.author,
             title: self.board.title.clone(),
             content: self.board.content.clone(),
             state: self.board.state.clone(),
-        })
+        }))
     }
     pub fn update_board(&mut self, cmd: EditBoard) {
         if let Some(ref title) = cmd.title {
@@ -54,12 +52,12 @@ impl BoardAggregate {
         if let Some(ref state) = cmd.state {
             self.board.state = state.clone()
         }
-        self.raise_event(BoardEvent::Updated {
+        self.raise_event(Box::new(BoardEvent::Updated {
             id: self.board.id,
             title: cmd.title,
             content: cmd.content,
             state: cmd.state,
-        })
+        }))
     }
     pub fn add_comment(&mut self, cmd: AddComment) {
         self.comments

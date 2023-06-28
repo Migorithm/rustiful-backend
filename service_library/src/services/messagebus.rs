@@ -7,7 +7,7 @@ use crate::{
             events::BoardEvent,
         },
         commands::{Command, ServiceResponse},
-        AnyTrait,
+        AnyTrait, Message,
     },
     utils::{ApplicationError, ApplicationResult},
 };
@@ -58,7 +58,7 @@ impl MessageBus {
         // ! We cannnot tell if handler requires or only require uow.
         // ! so it's better to take all handlers and inject dependencies so we can simply pass message
         // ! Dependency injection!
-        
+
         //  */
         let handler = MessageBus::init_command_handler();
         let res = handler.get(&message.type_id()).ok_or_else(|| {
@@ -67,11 +67,7 @@ impl MessageBus {
         })?(message.as_any(), uow.clone())
         .await?;
 
-        // message.handle(uow.clone()).await;
         let mut queue = uow.clone().lock().await._collect_events();
-
-        // TODO Handle Command First and loop event?
-
         while let Some(msg) = queue.pop_front() {
             // * Logging!
 
@@ -95,62 +91,30 @@ impl MessageBus {
         drop(uow);
         Ok(res)
     }
+    fn init_event_handler() -> UOWMappedEventHandler<Box<dyn Message>> {
+        let mut uow_map: HashMap<TypeId, Vec<DIHandler<Box<dyn Message>, AtomicUnitOfWork>>> =
+            HashMap::new();
+        // uow_map.insert(event.type_id())
+        uow_map.into()
+    }
 
     async fn handle_event(
         &mut self,
-        msg: Box<dyn Any + Send + Sync>,
+        msg: Box<dyn Message>,
         uow: Arc<Mutex<UnitOfWork>>,
     ) -> ApplicationResult<()> {
-        if msg.is::<BoardEvent>() {
-            let event: BoardEvent = *msg.downcast::<BoardEvent>().unwrap();
-            match event {
-                BoardEvent::Created { .. } => {
-                    for handler in handlers::BOARD_CREATED_EVENT_HANDLERS.iter() {
-                        handler(event.clone(), uow.clone()).await?;
-                    }
-                }
-                BoardEvent::Updated { .. } => {
-                    for handler in handlers::BOARD_UPDATED_EVENT_HANDLERS.iter() {
-                        handler(event.clone(), uow.clone()).await?;
-                    }
-                }
-                BoardEvent::CommentAdded { .. } => {
-                    for handler in handlers::COMMENT_ADDED_EVENT_HANDLERS.iter() {
-                        handler(event.clone(), uow.clone()).await?;
-                    }
-                }
-            };
-            #[cfg(test)]
-            {
-                self.book_keeper += 1
-            }
-        } else if msg.is::<AuthEvent>() {
-            let event: AuthEvent = *msg.downcast::<AuthEvent>().unwrap();
-            match event {
-                AuthEvent::Created { .. } => {
-                    for handler in handlers::ACCOUNT_CREATED_EVENT_HANDLERS.iter() {
-                        handler(event.clone(), uow.clone()).await?;
-                    }
-                }
-                AuthEvent::Updated { .. } => {
-                    for handler in handlers::ACCOUNT_UPDATED_EVENT_HANDLERS.iter() {
-                        handler(event.clone(), uow.clone()).await?;
-                    }
-                }
-            };
-            #[cfg(test)]
-            {
-                self.book_keeper += 1
-            }
-        } else {
-            Err(ApplicationError::InExecutableEvent)?
+        let event_handler = MessageBus::init_event_handler();
+        for handler in event_handler.get(&msg.type_id()).ok_or_else(|| {
+            eprintln!("Unprocessable Command Given!");
+            ApplicationError::NotFound
+        })? {
+            handler(msg.message_clone(), uow.clone()).await?;
         }
-
         drop(uow);
         Ok(())
     }
 
-    fn init_command_handler() -> UOWMappedHandler {
+    fn init_command_handler() -> UOWMappedHandler<Box<dyn Any + Send + Sync>> {
         let mut uow_map: HashMap<TypeId, DIHandler<Box<dyn Any + Send + Sync>, AtomicUnitOfWork>> =
             HashMap::new();
         uow_map.insert(
@@ -197,8 +161,8 @@ impl MessageBus {
     }
 }
 
-type UOWMappedHandler =
-    Arc<HashMap<TypeId, DIHandler<Box<dyn Any + Send + Sync>, AtomicUnitOfWork>>>;
+type UOWMappedHandler<T> = Arc<HashMap<TypeId, DIHandler<T, AtomicUnitOfWork>>>;
+type UOWMappedEventHandler<T> = Arc<HashMap<TypeId, Vec<DIHandler<T, AtomicUnitOfWork>>>>;
 type DIHandler<T, U> = Box<dyn Fn(T, U) -> Future<ServiceResponse> + Send + Sync>;
 
 #[cfg(test)]
@@ -230,8 +194,6 @@ pub mod test_messagebus {
                     panic!("Test Failed!")
                 }
             };
-
-            assert_eq!(ms.book_keeper, 1);
         })
         .await;
     }

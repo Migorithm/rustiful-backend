@@ -27,7 +27,7 @@ pub mod functions {
 
     pub async fn board_repository_helper(
         connection: AtomicConnection,
-    ) -> Repository<BoardAggregate, BoardEvent> {
+    ) -> Repository<BoardAggregate> {
         Repository::new(connection)
     }
 
