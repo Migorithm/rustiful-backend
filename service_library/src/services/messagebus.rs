@@ -1,5 +1,5 @@
 use crate::{
-    adapters::database::AtomicConnection,
+    adapters::{database::AtomicConnection, outbox::Outbox},
     domain::{
         auth::events::AuthEvent,
         board::{
@@ -190,6 +190,14 @@ where
             Box::new(
                 |c: Box<dyn Any + Send + Sync>, uow: AtomicUnitOfWork| -> Future<ServiceResponse> {
                     ServiceHandler::edit_comment(*c.downcast::<EditComment>().unwrap(), uow)
+                },
+            ),
+        );
+        uow_map.insert(
+            TypeId::of::<Outbox>(),
+            Box::new(
+                |c: Box<dyn Any + Send + Sync>, uow: AtomicUnitOfWork| -> Future<ServiceResponse> {
+                    ServiceHandler::handle_outbox(*c.downcast::<Outbox>().unwrap(), uow)
                 },
             ),
         );
