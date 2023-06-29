@@ -101,11 +101,11 @@ mod test_outbox {
             outbox_setup(connection.clone()).await;
 
             '_test_case: {
-                let mut bus = MessageBus::new();
+                let bus = MessageBus::new().await;
 
                 for e in Outbox::get(connection.clone()).await.unwrap() {
                     //TODO Messagebus for outbox?
-                    match bus.handle(e, connection.clone()).await {
+                    match bus.handle(e).await {
                         Ok(_var) => {
                             println!("Success!")
                         }

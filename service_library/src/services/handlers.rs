@@ -1,3 +1,5 @@
+use std::any::{Any, TypeId};
+use std::collections::HashMap;
 use std::pin::Pin;
 
 use crate::adapters::outbox::Outbox;
@@ -72,7 +74,7 @@ impl ServiceHandler {
 
     pub fn handle_outbox(outbox: Outbox, uow: AtomicUnitOfWork) -> Future<ServiceResponse> {
         Box::pin(async move {
-            let msg = outbox.convert_event();
+            let _msg = outbox.convert_event();
             let mut uow = uow.lock().await;
             uow.begin().await;
 
@@ -85,7 +87,35 @@ impl ServiceHandler {
     }
 }
 
-// TODO Defining event Event
-// pub(crate) static BOARD_CREATED_EVENT_HANDLERS: [EventHandler<BoardEvent>; 0] = [];
-// pub(crate) static BOARD_UPDATED_EVENT_HANDLERS: [EventHandler<BoardEvent>; 0] = [];
-// pub(crate) static COMMENT_ADDED_EVENT_HANDLERS: [EventHandler<BoardEvent>; 0] = [];
+macro_rules! command_handler {
+    (
+        [$iden:ident, $injectable:ty] ; ($($command:ty:$handler:expr),*)
+    )
+        => {
+        pub fn init_command_handler() -> HashMap::<TypeId,Box<dyn Fn(Box<dyn Any + Send + Sync>, $injectable ) -> Future<ServiceResponse> + Send + Sync>>{
+            let mut uow_map: HashMap::<TypeId,Box<dyn Fn(Box<dyn Any + Send + Sync>, $injectable ) -> Future<ServiceResponse> + Send + Sync>> = HashMap::new();
+            $(
+                uow_map.insert(
+                    TypeId::of::<$command>(),
+                    Box::new(
+                        |c:Box<dyn Any+Send+Sync>, $iden: $injectable |->Future<ServiceResponse>{
+                            $handler(*c.downcast::<$command>().unwrap(),$iden)
+                        }
+                    )
+                );
+            )*
+            uow_map
+        }
+    };
+}
+
+command_handler!(
+    [uow, AtomicUnitOfWork];
+    (
+        CreateBoard: ServiceHandler::create_board,
+        EditBoard: ServiceHandler::edit_board,
+        AddComment: ServiceHandler::add_comment,
+        EditComment: ServiceHandler::edit_comment,
+        Outbox: ServiceHandler::handle_outbox
+    )
+);

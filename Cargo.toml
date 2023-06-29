@@ -37,4 +37,3 @@ tower-http = { version = "0.4.0", features = ["add-extension", "trace","cors"] }
 tracing = "*"
 tracing-subscriber = { version = "*", features = ["env-filter"] }
 
-paste="*"
