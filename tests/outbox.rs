@@ -104,6 +104,7 @@ mod test_outbox {
                 let mut bus = MessageBus::new();
 
                 for e in Outbox::get(connection.clone()).await.unwrap() {
+                    //TODO Messagebus for outbox?
                     match bus.handle(e, connection.clone()).await {
                         Ok(_var) => {
                             println!("Success!")
@@ -112,7 +113,6 @@ mod test_outbox {
                     }
                 }
 
-                // TODO where does the processed tag get modifeid?
                 let boxes = Outbox::get(connection.clone()).await.unwrap();
                 assert!(boxes.is_empty());
             }

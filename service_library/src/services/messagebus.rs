@@ -15,10 +15,33 @@ use std::{
 };
 use tokio::sync::Mutex;
 
+
 use super::{
     handlers::{Future, ServiceHandler},
     unit_of_work::{AtomicUnitOfWork, UnitOfWork},
 };
+
+macro_rules! command_handler {
+    (
+        [$iden:ident, $injectable:ty ] , $($command:ty,$handler:expr);*
+    )
+        => {
+        fn init_command_handler() -> Arc<HashMap::<TypeId,Box<dyn Fn(Box<dyn Any + Send + Sync>, $injectable ) -> Future<ServiceResponse> + Send + Sync>>>{
+            let mut uow_map: HashMap::<TypeId,Box<dyn Fn(Box<dyn Any + Send + Sync>, $injectable ) -> Future<ServiceResponse> + Send + Sync>> = HashMap::new();
+            $(
+                uow_map.insert(
+                    TypeId::of::<$command>(),
+                    Box::new(
+                        |c:Box<dyn Any+Send+Sync>, $iden: $injectable |->Future<ServiceResponse>{
+                            $handler(*c.downcast::<$command>().unwrap(),$iden)
+                        }
+                    )
+                );
+            )*
+            uow_map.into()
+        }
+    };
+}
 
 #[derive(Clone)]
 pub struct MessageBus {
@@ -102,7 +125,7 @@ impl MessageBus {
     ) -> ApplicationResult<()> {
         let event_handler = MessageBus::init_event_handler();
         for handler in event_handler.get(&msg.type_id()).ok_or_else(|| {
-            eprintln!("Unprocessable Command Given!");
+            eprintln!("Unprocessable Event Given!");
             ApplicationError::NotFound
         })? {
             handler(msg.message_clone(), uow.clone()).await?;
@@ -111,56 +134,17 @@ impl MessageBus {
         Ok(())
     }
 
-    fn init_command_handler() -> UOWMappedHandler<Box<dyn Any + Send + Sync>> {
-        // TODO As there is a host of repetitive work, this is subject to macro.
-
-        let mut uow_map: HashMap<TypeId, DIHandler<Box<dyn Any + Send + Sync>, AtomicUnitOfWork>> =
-            HashMap::new();
-        uow_map.insert(
-            TypeId::of::<CreateBoard>(),
-            Box::new(
-                |c: Box<dyn Any + Send + Sync>, uow: AtomicUnitOfWork| -> Future<ServiceResponse> {
-                    ServiceHandler::create_board(*c.downcast::<CreateBoard>().unwrap(), uow)
-                },
-            ),
-        );
-        uow_map.insert(
-            TypeId::of::<EditBoard>(),
-            Box::new(
-                |c: Box<dyn Any + Send + Sync>, uow: AtomicUnitOfWork| -> Future<ServiceResponse> {
-                    ServiceHandler::edit_board(*c.downcast::<EditBoard>().unwrap(), uow)
-                },
-            ),
-        );
-        uow_map.insert(
-            TypeId::of::<AddComment>(),
-            Box::new(
-                |c: Box<dyn Any + Send + Sync>, uow: AtomicUnitOfWork| -> Future<ServiceResponse> {
-                    ServiceHandler::add_comment(*c.downcast::<AddComment>().unwrap(), uow)
-                },
-            ),
-        );
-        uow_map.insert(
-            TypeId::of::<EditComment>(),
-            Box::new(
-                |c: Box<dyn Any + Send + Sync>, uow: AtomicUnitOfWork| -> Future<ServiceResponse> {
-                    ServiceHandler::edit_comment(*c.downcast::<EditComment>().unwrap(), uow)
-                },
-            ),
-        );
-        uow_map.insert(
-            TypeId::of::<Outbox>(),
-            Box::new(
-                |c: Box<dyn Any + Send + Sync>, uow: AtomicUnitOfWork| -> Future<ServiceResponse> {
-                    ServiceHandler::handle_outbox(*c.downcast::<Outbox>().unwrap(), uow)
-                },
-            ),
-        );
-        uow_map.into()
-    }
+    command_handler!(
+        [uow, AtomicUnitOfWork] ,
+        CreateBoard,ServiceHandler::create_board ;
+        EditBoard,ServiceHandler::edit_board ;
+        AddComment,ServiceHandler::add_comment ;
+        EditComment, ServiceHandler::edit_comment;
+        Outbox , ServiceHandler::handle_outbox
+    );
 }
 
-type UOWMappedHandler<T> = Arc<HashMap<TypeId, DIHandler<T, AtomicUnitOfWork>>>;
+
 type UOWMappedEventHandler<T> = Arc<HashMap<TypeId, Vec<DIHandler<T, AtomicUnitOfWork>>>>;
 type DIHandler<T, U> = Box<dyn Fn(T, U) -> Future<ServiceResponse> + Send + Sync>;
 
