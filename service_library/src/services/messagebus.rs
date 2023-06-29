@@ -11,8 +11,8 @@ use std::{
     any::{Any, TypeId},
     collections::HashMap,
     sync::{
-        atomic::AtomicPtr,
         atomic::Ordering::{Acquire, Release},
+        atomic::{AtomicI32, AtomicPtr},
         Arc,
     },
 };
@@ -32,7 +32,7 @@ type CommandHandler<T> = HashMap<
 
 pub struct MessageBus {
     #[cfg(test)]
-    pub book_keeper: i32,
+    pub book_keeper: AtomicI32,
     pub connection: AtomicConnection,
 }
 
@@ -40,7 +40,7 @@ impl MessageBus {
     pub async fn new() -> Arc<Self> {
         Self {
             #[cfg(test)]
-            book_keeper: 0,
+            book_keeper: AtomicI32::new(0),
             connection: Connection::new()
                 .await
                 .expect("Connection Creation Failed!"),
@@ -107,6 +107,12 @@ impl MessageBus {
             ApplicationError::NotFound
         })? {
             handler(msg.message_clone(), uow.clone()).await?;
+
+            #[cfg(test)]
+            {
+                self.book_keeper
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            }
         }
         drop(uow);
         Ok(())
@@ -132,14 +138,19 @@ fn command_handler() -> &'static CommandHandler<AtomicUnitOfWork> {
 
 #[cfg(test)]
 pub mod test_messagebus {
-    use crate::domain::board::commands::CreateBoard;
+    use std::str::FromStr;
+
+    use crate::adapters::repositories::{Repository, TRepository};
+    use crate::domain::board::commands::{AddComment, CreateBoard, EditBoard};
+    use crate::domain::board::BoardAggregate;
+    use crate::domain::commands::ServiceResponse;
     use crate::services::messagebus::MessageBus;
     use crate::utils::test_components::components::*;
 
     use uuid::Uuid;
 
     #[tokio::test]
-    async fn test_message_bus_command_handling() {
+    async fn test_message_bus_create_board() {
         run_test(async {
             let ms = MessageBus::new().await;
             let cmd = CreateBoard {
@@ -148,15 +159,92 @@ pub mod test_messagebus {
                 content: "TestContent".into(),
                 state: Default::default(),
             };
-            match ms.handle(cmd).await {
-                Ok(res) => {
-                    println!("{:?}", res)
-                }
-                Err(err) => {
-                    eprintln!("{}", err);
-                    panic!("Test Failed!")
-                }
+
+            '_test_code: {
+                let Ok(ServiceResponse::String(var)) = ms.handle(cmd).await else{
+                panic!("Test Failed!")
+                };
+
+                let mut repo = Repository::<BoardAggregate>::new(ms.connection.clone());
+                match repo.get(&var).await {
+                    Ok(_created_board) => println!("Success!"),
+                    Err(err) => {
+                        eprintln!("{}", err);
+                        panic!("Something wrong")
+                    }
+                };
+            }
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_message_bus_edit_board() {
+        run_test(async {
+            let ms = MessageBus::new().await;
+            let create_cmd = CreateBoard {
+                author: Uuid::new_v4(),
+                title: "TestTitle".into(),
+                content: "TestContent".into(),
+                state: Default::default(),
             };
+            let Ok(ServiceResponse::String(id)) =  ms.handle(create_cmd).await else {
+                panic!("There must be!")
+            };
+
+            '_test_code: {
+                let edit_cmd = EditBoard {
+                    id: Uuid::from_str(&id).unwrap(),
+                    title: Some("TestTitle2".into()),
+                    content: Some("ChangedContent".into()),
+                    state: Default::default(),
+                };
+                let Ok(ServiceResponse::Empty(())) = ms.handle(edit_cmd).await else{
+                    panic!("There must be!")
+                };
+                let mut repo = Repository::<BoardAggregate>::new(ms.connection.clone());
+                let Ok(aggregate) = repo.get(&id).await else{
+                        panic!("Something wrong")
+                };
+
+                assert_eq!(&aggregate.board.title, "TestTitle2");
+                assert_eq!(&aggregate.board.content, "ChangedContent");
+            }
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_message_bus_add_comment() {
+        run_test(async {
+            let ms = MessageBus::new().await;
+            let create_cmd = CreateBoard {
+                author: Uuid::new_v4(),
+                title: "TestTitle".into(),
+                content: "TestContent".into(),
+                state: Default::default(),
+            };
+            let Ok(ServiceResponse::String(id)) =  ms.handle(create_cmd).await else {
+                panic!("There must be!")
+            };
+
+            '_test_code: {
+                let add_comment_cmd = AddComment {
+                    board_id: Uuid::from_str(&id).unwrap(),
+                    author: Uuid::new_v4(),
+                    content: "Good Content!".into(),
+                };
+                let Ok(ServiceResponse::Empty(())) = ms.handle(add_comment_cmd).await else{
+                    panic!("Test Failed!")
+                };
+
+                let mut repo = Repository::<BoardAggregate>::new(ms.connection.clone());
+                let Ok(aggregate) = repo.get(&id).await else{
+                        panic!("Something wrong")
+                };
+
+                assert_eq!(aggregate.comments.len(), 1);
+            }
         })
         .await;
     }
