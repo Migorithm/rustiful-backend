@@ -1,86 +1,65 @@
 use crate::{
-    adapters::{database::AtomicConnection, outbox::Outbox},
+    adapters::database::{AtomicConnection, Connection},
     domain::{
-        board::commands::{AddComment, CreateBoard, EditBoard, EditComment},
         commands::{Command, ServiceResponse},
         AnyTrait, Message,
     },
+    services::handlers::init_command_handler,
     utils::{ApplicationError, ApplicationResult},
 };
-
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
-    sync::Arc,
+    sync::{
+        atomic::AtomicPtr,
+        atomic::Ordering::{Acquire, Release},
+        Arc,
+    },
 };
+
 use tokio::sync::Mutex;
 
-
 use super::{
-    handlers::{Future, ServiceHandler},
+    handlers::Future,
     unit_of_work::{AtomicUnitOfWork, UnitOfWork},
 };
 
-macro_rules! command_handler {
-    (
-        [$iden:ident, $injectable:ty ] , $($command:ty,$handler:expr);*
-    )
-        => {
-        fn init_command_handler() -> Arc<HashMap::<TypeId,Box<dyn Fn(Box<dyn Any + Send + Sync>, $injectable ) -> Future<ServiceResponse> + Send + Sync>>>{
-            let mut uow_map: HashMap::<TypeId,Box<dyn Fn(Box<dyn Any + Send + Sync>, $injectable ) -> Future<ServiceResponse> + Send + Sync>> = HashMap::new();
-            $(
-                uow_map.insert(
-                    TypeId::of::<$command>(),
-                    Box::new(
-                        |c:Box<dyn Any+Send+Sync>, $iden: $injectable |->Future<ServiceResponse>{
-                            $handler(*c.downcast::<$command>().unwrap(),$iden)
-                        }
-                    )
-                );
-            )*
-            uow_map.into()
-        }
-    };
-}
+type EventHandler<T> = Box<dyn Fn(Box<dyn Message>, T) -> Future<ServiceResponse> + Send + Sync>;
+type CommandHandler<T> = HashMap<
+    TypeId,
+    Box<dyn Fn(Box<dyn Any + Send + Sync>, T) -> Future<ServiceResponse> + Send + Sync>,
+>;
 
-#[derive(Clone)]
 pub struct MessageBus {
     #[cfg(test)]
     pub book_keeper: i32,
-}
-
-impl Default for MessageBus {
-    fn default() -> Self {
-        Self::new()
-    }
+    pub connection: AtomicConnection,
 }
 
 impl MessageBus {
-    pub fn new() -> Self {
+    pub async fn new() -> Arc<Self> {
         Self {
             #[cfg(test)]
             book_keeper: 0,
+            connection: Connection::new()
+                .await
+                .expect("Connection Creation Failed!"),
         }
+        .into()
     }
 
-    pub async fn handle<C>(
-        &mut self,
-        message: C,
-        connection: AtomicConnection,
-    ) -> ApplicationResult<ServiceResponse>
+    pub async fn handle<C>(&self, message: C) -> ApplicationResult<ServiceResponse>
     where
         C: Command + AnyTrait,
     {
-        let uow = UnitOfWork::new(connection.clone());
+        let uow = UnitOfWork::new(self.connection.clone());
 
         //*
         // ! We cannnot tell if handler requires or only require uow.
         // ! so it's better to take all handlers and inject dependencies so we can simply pass message
         // ! Dependency injection! - through boostrapping
-
         //  */
-        let handler = MessageBus::init_command_handler();
-        let res = handler.get(&message.type_id()).ok_or_else(|| {
+        let res = command_handler().get(&message.type_id()).ok_or_else(|| {
             eprintln!("Unprocessable Command Given!");
             ApplicationError::NotFound
         })?(message.as_any(), uow.clone())
@@ -110,16 +89,15 @@ impl MessageBus {
         drop(uow);
         Ok(res)
     }
-    fn init_event_handler() -> UOWMappedEventHandler<Box<dyn Message>> {
+    fn init_event_handler() -> Arc<HashMap<TypeId, Vec<EventHandler<AtomicUnitOfWork>>>> {
         // TODO As there is a host of repetitive work, this is subject to macro.
-        let mut uow_map: HashMap<TypeId, Vec<DIHandler<Box<dyn Message>, AtomicUnitOfWork>>> =
-            HashMap::new();
+        let uow_map = HashMap::new();
         // uow_map.insert(event.type_id())
         uow_map.into()
     }
 
     async fn handle_event(
-        &mut self,
+        &self,
         msg: Box<dyn Message>,
         uow: Arc<Mutex<UnitOfWork>>,
     ) -> ApplicationResult<()> {
@@ -133,24 +111,27 @@ impl MessageBus {
         drop(uow);
         Ok(())
     }
-
-    command_handler!(
-        [uow, AtomicUnitOfWork] ,
-        CreateBoard,ServiceHandler::create_board ;
-        EditBoard,ServiceHandler::edit_board ;
-        AddComment,ServiceHandler::add_comment ;
-        EditComment, ServiceHandler::edit_comment;
-        Outbox , ServiceHandler::handle_outbox
-    );
 }
 
+fn command_handler() -> &'static CommandHandler<AtomicUnitOfWork> {
+    static PTR: AtomicPtr<CommandHandler<AtomicUnitOfWork>> = AtomicPtr::new(std::ptr::null_mut());
+    let mut p = PTR.load(Acquire);
 
-type UOWMappedEventHandler<T> = Arc<HashMap<TypeId, Vec<DIHandler<T, AtomicUnitOfWork>>>>;
-type DIHandler<T, U> = Box<dyn Fn(T, U) -> Future<ServiceResponse> + Send + Sync>;
+    if p.is_null() {
+        p = Box::into_raw(Box::new(init_command_handler()));
+        if let Err(e) = PTR.compare_exchange(std::ptr::null_mut(), p, Release, Acquire) {
+            // Safety: p comes from Box::into_raw right above
+            // and wasn't whared with any other thread
+            drop(unsafe { Box::from_raw(p) });
+            p = e;
+        }
+    }
+    // Safety: p is not null and points to a properly initialized value
+    unsafe { &*p }
+}
 
 #[cfg(test)]
 pub mod test_messagebus {
-    use crate::adapters::database::Connection;
     use crate::domain::board::commands::CreateBoard;
     use crate::services::messagebus::MessageBus;
     use crate::utils::test_components::components::*;
@@ -160,15 +141,14 @@ pub mod test_messagebus {
     #[tokio::test]
     async fn test_message_bus_command_handling() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
-            let mut ms = MessageBus::new();
+            let ms = MessageBus::new().await;
             let cmd = CreateBoard {
                 author: Uuid::new_v4(),
                 title: "TestTitle".into(),
                 content: "TestContent".into(),
                 state: Default::default(),
             };
-            match ms.handle(cmd, connection).await {
+            match ms.handle(cmd).await {
                 Ok(res) => {
                     println!("{:?}", res)
                 }

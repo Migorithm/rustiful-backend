@@ -8,8 +8,8 @@ use axum::{
     Router,
 };
 use routes::board_routers;
-use service_library::adapters::database::{AtomicConnection, Connection};
-use service_library::domain::board::commands::*;
+
+use service_library::{domain::board::commands::*, services::messagebus::MessageBus};
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -57,14 +57,13 @@ async fn main() {
 
     // ! Connection
     println!("Connections Are Being Pooled...");
-    let conn: AtomicConnection = Connection::new()
-        .await
-        .expect("Connection Creation Failed!");
+
+    let bus = MessageBus::new().await;
 
     let app = Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .nest("/boards", board_routers())
-        .with_state(conn.clone())
+        .with_state(bus.clone())
         .layer(
             CorsLayer::new()
                 .allow_origin(
