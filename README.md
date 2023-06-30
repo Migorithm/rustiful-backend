@@ -27,19 +27,19 @@ As claimed, the notion of `Aggregate` taked from DDD community, transaction boun
 consistency boundary that is set by aggregate.
 ```rust
 pub trait Aggregate: Send + Sync {
-    type Event;
-    fn collect_events(&mut self) -> VecDeque<Self::Event> {
+    fn collect_events(&mut self) -> VecDeque<Box<dyn Message>> {
         if !self.events().is_empty() {
             self.take_events()
         } else {
             VecDeque::new()
         }
     }
-    fn events(&self) -> &VecDeque<Self::Event>;
+    fn events(&self) -> &VecDeque<Box<dyn Message>>;
 
-    fn take_events(&mut self) -> VecDeque<Self::Event>;
-    fn raise_event(&mut self, event: Self::Event);
+    fn take_events(&mut self) -> VecDeque<Box<dyn Message>>;
+    fn raise_event(&mut self, event: Box<dyn Message>);
 }
+
 ```
 And each event that's raised after handling command is internally registerd.
  
@@ -51,16 +51,10 @@ If your *business logic* is entangled with the *query logic*, it easily gets mes
 You can use `Repository` pattern to steer clear of that situation.<br><br>
 
 In this project, `one repository for one aggregate` priciple is strictly observed.<br>
-So, every access to persistence layer is done through repository and its associated type, `Aggregate` as follows:
+So, every access to persistence layer is done through repository and its generic type, `Aggregate` as follows:
 ```rust
 #[async_trait]
-pub trait TRepository {
-    type Aggregate: AsMut<Self::Aggregate>
-        + AsRef<Self::Aggregate>
-        + Aggregate<Event = Self::Event>
-        + Send
-        + Sync;
-    type Event: Message;
+pub trait TRepository<A: Aggregate + 'static>{
 ...
 }
 ```
@@ -73,33 +67,22 @@ To insert, fetch and update aggregate, the following method must be implemented
 pub trait TRepository {
     ...
 
-    async fn add(
-        &mut self,
-        mut aggregate: impl AsMut<Self::Aggregate> + Send + Sync,
-    ) -> Result<String, ApplicationError> {
-        self._collect_events(aggregate.as_mut());
-        self._add(aggregate.as_mut()).await
+    async fn add(&mut self, aggregate: &mut A) -> Result<String, ApplicationError> {
+        self._collect_events(aggregate);
+        self._add(aggregate).await
     }
 
-    async fn _add(
-        &mut self,
-        aggregate: impl AsRef<Self::Aggregate> + Send + Sync,
-    ) -> Result<String, ApplicationError>;
+    async fn _add(&mut self, aggregate: &A) -> Result<String, ApplicationError>;
 
-    async fn get(&mut self, aggregate_id: &str) -> Result<Self::Aggregate, ApplicationError>;
+    async fn get(&self, aggregate_id: &str) -> Result<A, ApplicationError>;
 
-    async fn update(
-        &mut self,
-        mut aggregate: impl AsMut<Self::Aggregate> + Send + Sync,
-    ) -> Result<(), ApplicationError> {
-        self._collect_events(aggregate.as_mut());
-        self._update(aggregate.as_mut()).await
+    async fn update(&mut self, aggregate: &mut A) -> Result<(), ApplicationError> {
+        self._collect_events(aggregate);
+        self._update(aggregate).await
     }
 
-    async fn _update(
-        &mut self,
-        aggregate: impl AsRef<Self::Aggregate> + Send + Sync,
-    ) -> Result<(), ApplicationError>;
+    async fn _update(&mut self, aggregate: &A) -> Result<(), ApplicationError>;
+
 }
 ```
 As you can see, `_collect_events` event hook is followed by the query operations such as `_add` and `_update`.<br>
@@ -111,11 +94,11 @@ pub trait TRepository {
     ...
 
 
-    fn get_events(&self) -> &VecDeque<Self::Event>;
-    fn set_events(&mut self, events: VecDeque<Self::Event>);
+    fn get_events(&self) -> &VecDeque<Box<dyn Message>>;
+    fn set_events(&mut self, events: VecDeque<Box<dyn Message>>);
 
-    fn _collect_events(&mut self, mut aggregate: impl AsMut<Self::Aggregate> + Send + Sync) {
-        self.set_events(aggregate.as_mut().collect_events())
+    fn _collect_events(&mut self, aggregate: &mut A) {
+        self.set_events(aggregate.collect_events())   
     }
     
 }
@@ -129,7 +112,7 @@ Notice, however, that these events are for internal handling that happens to be 
 pub trait TRepository {
     ...
 
-  fn _collect_outbox(&self) -> Box<dyn Iterator<Item = Outbox> + '_ + Send> {
+    fn _collect_outbox(&self) -> Box<dyn Iterator<Item = Outbox> + '_ + Send> {
         Box::new(
             self.get_events()
                 .iter()

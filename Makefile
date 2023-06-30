@@ -22,3 +22,6 @@ test:
 checks:
 	$(EXPORT) && cargo fmt
 	$(EXPORT) && cargo clippy
+
+delete-git-branch-except-main:
+	git branch | grep -v "main" | xargs git branch -D
