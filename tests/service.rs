@@ -36,7 +36,7 @@ pub mod service_tests {
                 Ok(id) => '_test: {
                     let uow = UnitOfWork::new(connection.clone());
                     let id: String = id.try_into().unwrap();
-                    if let Err(err) = uow.lock().await.boards.get(&id).await {
+                    if let Err(err) = uow.read().await.boards.get(&id).await {
                         panic!("Fetching newly created object failed! : {}", err);
                     };
                 }
@@ -80,7 +80,7 @@ pub mod service_tests {
                     Ok(_res) => {
                         let uow = UnitOfWork::new(connection.clone());
 
-                        if let Ok(board_aggregate) = uow.lock().await.boards.get(&id).await {
+                        if let Ok(board_aggregate) = uow.read().await.boards.get(&id).await {
                             assert_eq!(
                                 board_aggregate.board.content,
                                 "Changed to this".to_string()
@@ -120,7 +120,7 @@ pub mod service_tests {
                 ServiceHandler::add_comment(cmd, uow.clone()).await.unwrap();
 
                 let uow = UnitOfWork::new(connection.clone());
-                if let Ok(board_aggregate) = uow.lock().await.boards.get(&id).await {
+                if let Ok(board_aggregate) = uow.read().await.boards.get(&id).await {
                     assert_eq!(board_aggregate.comments.len(), 1);
                 };
             }

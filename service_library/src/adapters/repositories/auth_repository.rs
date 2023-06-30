@@ -34,7 +34,7 @@ impl TRepository for Repository<AuthAggregate> {
         unimplemented!()
     }
 
-    async fn get(&mut self, _aggregate_id: &str) -> Result<Self::Aggregate, ApplicationError> {
+    async fn get(&self, _aggregate_id: &str) -> Result<Self::Aggregate, ApplicationError> {
         unimplemented!()
     }
 

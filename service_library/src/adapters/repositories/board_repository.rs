@@ -57,7 +57,7 @@ impl TRepository for Repository<BoardAggregate> {
         Ok(board.id.to_string())
     }
 
-    async fn get(&mut self, _aggregate_id: &str) -> Result<BoardAggregate, ApplicationError> {
+    async fn get(&self, _aggregate_id: &str) -> Result<BoardAggregate, ApplicationError> {
         let uuidfied = Uuid::from_str(_aggregate_id).unwrap();
 
         let board = sqlx::query_as!(

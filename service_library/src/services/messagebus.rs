@@ -20,8 +20,6 @@ use std::{
 #[cfg(test)]
 use std::sync::atomic::AtomicI32;
 
-use tokio::sync::Mutex;
-
 use super::{
     handlers::Future,
     unit_of_work::{AtomicUnitOfWork, UnitOfWork},
@@ -69,7 +67,7 @@ impl MessageBus {
         })?(message.as_any(), uow.clone())
         .await?;
 
-        let mut queue = uow.clone().lock().await._collect_events();
+        let mut queue = uow.clone().write().await._collect_events();
         while let Some(msg) = queue.pop_front() {
             // * Logging!
 
@@ -86,7 +84,7 @@ impl MessageBus {
                 }
             }
 
-            for new_event in uow.clone().lock().await._collect_events() {
+            for new_event in uow.clone().write().await._collect_events() {
                 queue.push_back(new_event);
             }
         }
@@ -97,7 +95,7 @@ impl MessageBus {
     async fn handle_event(
         &self,
         msg: Box<dyn Message>,
-        uow: Arc<Mutex<UnitOfWork>>,
+        uow: AtomicUnitOfWork,
     ) -> ApplicationResult<()> {
         let event_handler = event_handler();
         for handler in event_handler.get(msg.topic()).ok_or_else(|| {
@@ -181,7 +179,7 @@ pub mod test_messagebus {
                 panic!("Test Failed!")
                 };
 
-                let mut repo = Repository::<BoardAggregate>::new(ms.connection.clone());
+                let repo = Repository::<BoardAggregate>::new(ms.connection.clone());
                 match repo.get(&var).await {
                     Ok(_created_board) => println!("Success!"),
                     Err(err) => {
@@ -218,7 +216,7 @@ pub mod test_messagebus {
                 let Ok(ServiceResponse::Empty(())) = ms.handle(edit_cmd).await else{
                     panic!("There must be!")
                 };
-                let mut repo = Repository::<BoardAggregate>::new(ms.connection.clone());
+                let repo = Repository::<BoardAggregate>::new(ms.connection.clone());
                 let Ok(aggregate) = repo.get(&id).await else{
                         panic!("Something wrong")
                 };
@@ -254,7 +252,7 @@ pub mod test_messagebus {
                     panic!("Test Failed!")
                 };
 
-                let mut repo = Repository::<BoardAggregate>::new(ms.connection.clone());
+                let repo = Repository::<BoardAggregate>::new(ms.connection.clone());
                 let Ok(aggregate) = repo.get(&id).await else{
                         panic!("Something wrong")
                 };
