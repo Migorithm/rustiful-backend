@@ -31,14 +31,14 @@ impl State for AccountState {
 #[derive(Default)]
 pub struct Account {
     //root
-    id: String,
-    email: String,
-    state: AccountState,
+    pub(crate) id: String,
+    pub(crate) email: String,
+    pub(crate) state: AccountState,
 
     pub(super) hashed_password: String,
-    nickname: String,
-    create_dt: DateTime<Utc>,
-    version: i32,
+    pub(crate) nickname: String,
+    pub(crate) create_dt: DateTime<Utc>,
+    pub(crate) version: i32,
 }
 
 impl Account {
@@ -62,9 +62,9 @@ impl Account {
 }
 #[derive(Default)]
 pub struct TokenStat {
-    access_token: String,
-    refresh_token: String,
-    expiry_date: DateTime<Utc>,
+    pub access_token: String,
+    pub refresh_token: String,
+    pub expiry_date: DateTime<Utc>,
 }
 
 impl TokenStat {

@@ -9,7 +9,7 @@ chrono = "*"
 time = "*"
 async-trait = {version="*"}
 sqlx = { version = "*", features = [ "runtime-tokio-rustls", "migrate", "postgres","uuid","chrono","offline"] }
-tokio = { version = "1.1.1", features = ["full"] }
+tokio = { version = "*", features = ["rt", "macros"] }
 futures ={version="*"}
 dotenv={version="*"}
 serde = {version="*",features=["derive"]}

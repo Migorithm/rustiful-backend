@@ -1,8 +1,6 @@
-#[allow(unused)]
 #[cfg(test)]
 pub mod functions {
 
-    use std::pin::Pin;
     use std::str::FromStr;
 
     use futures::Future;
