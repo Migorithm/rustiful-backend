@@ -29,18 +29,18 @@ impl TRepository for Repository<AuthAggregate> {
 
     async fn _add(
         &mut self,
-        aggregate: impl AsRef<Self::Aggregate> + Send + Sync,
+        _aggregate: impl AsRef<Self::Aggregate> + Send + Sync,
     ) -> Result<String, ApplicationError> {
         unimplemented!()
     }
 
-    async fn get(&mut self, aggregate_id: &str) -> Result<Self::Aggregate, ApplicationError> {
+    async fn get(&mut self, _aggregate_id: &str) -> Result<Self::Aggregate, ApplicationError> {
         unimplemented!()
     }
 
     async fn _update(
         &mut self,
-        aggregate: impl AsRef<Self::Aggregate> + Send + Sync,
+        _aggregate: impl AsRef<Self::Aggregate> + Send + Sync,
     ) -> Result<(), ApplicationError> {
         unimplemented!()
     }
