@@ -38,7 +38,7 @@ mod test_outbox {
                 let uow = UnitOfWork::new(connection);
                 let id: String = response.try_into().unwrap();
 
-                if let Err(err) = uow.lock().await.boards.get(&id).await {
+                if let Err(err) = uow.read().await.boards.get(&id).await {
                     panic!("Fetching newly created object failed! : {}", err);
                 };
             }

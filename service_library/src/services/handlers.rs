@@ -21,7 +21,7 @@ pub struct ServiceHandler;
 impl ServiceHandler {
     pub fn create_board(cmd: CreateBoard, uow: AtomicUnitOfWork) -> Future<ServiceResponse> {
         Box::pin(async move {
-            let mut uow = uow.lock().await;
+            let mut uow = uow.write().await;
             uow.begin().await;
             let builder = BoardAggregate::builder();
             let mut board_aggregate: BoardAggregate = builder.build();
@@ -34,7 +34,7 @@ impl ServiceHandler {
 
     pub fn edit_board(cmd: EditBoard, uow: AtomicUnitOfWork) -> Future<ServiceResponse> {
         Box::pin(async move {
-            let mut uow = uow.lock().await;
+            let mut uow = uow.write().await;
             uow.begin().await;
             let mut board_aggregate = uow.boards.get(&cmd.id.to_string()).await?;
             board_aggregate.update_board(cmd);
@@ -46,7 +46,7 @@ impl ServiceHandler {
 
     pub fn add_comment(cmd: AddComment, uow: AtomicUnitOfWork) -> Future<ServiceResponse> {
         Box::pin(async move {
-            let mut uow = uow.lock().await;
+            let mut uow = uow.write().await;
             uow.begin().await;
             let mut board_aggregate = uow.boards.get(&cmd.board_id.to_string()).await?;
             board_aggregate.add_comment(cmd);
@@ -58,7 +58,7 @@ impl ServiceHandler {
 
     pub fn edit_comment(cmd: EditComment, uow: AtomicUnitOfWork) -> Future<ServiceResponse> {
         Box::pin(async move {
-            let mut uow = uow.lock().await;
+            let mut uow = uow.write().await;
             uow.begin().await;
             let mut board_aggregate = uow.boards.get(&cmd.board_id.to_string()).await?;
             board_aggregate.edit_comment(cmd)?;
@@ -71,7 +71,7 @@ impl ServiceHandler {
     pub fn handle_outbox(outbox: Outbox, uow: AtomicUnitOfWork) -> Future<ServiceResponse> {
         Box::pin(async move {
             let _msg = outbox.convert_event();
-            let mut uow = uow.lock().await;
+            let mut uow = uow.write().await;
             uow.begin().await;
 
             // ! Todo msg handling logic
@@ -90,7 +90,7 @@ impl EventHandler {
         uow: AtomicUnitOfWork,
     ) -> Future<ServiceResponse> {
         Box::pin(async move {
-            let mut uow = uow.lock().await;
+            let mut uow = uow.write().await;
             uow.begin().await;
             println!("You got here!");
             uow.commit().await?;
@@ -102,7 +102,7 @@ impl EventHandler {
         uow: AtomicUnitOfWork,
     ) -> Future<ServiceResponse> {
         Box::pin(async move {
-            let mut uow = uow.lock().await;
+            let mut uow = uow.write().await;
             uow.begin().await;
             println!("You got here too!");
             uow.commit().await?;

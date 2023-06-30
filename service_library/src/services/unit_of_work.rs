@@ -1,7 +1,5 @@
 use std::{collections::VecDeque, mem, sync::Arc};
 
-use tokio::sync::Mutex;
-
 use crate::adapters::repositories::{Repository, TRepository};
 use crate::domain::Message;
 use crate::{
@@ -9,8 +7,9 @@ use crate::{
     domain::{auth::AuthAggregate, board::BoardAggregate},
     utils::ApplicationResult,
 };
+use tokio::sync::RwLock;
 
-pub(crate) type AtomicUnitOfWork = Arc<Mutex<UnitOfWork>>;
+pub(crate) type AtomicUnitOfWork = Arc<RwLock<UnitOfWork>>;
 pub struct UnitOfWork {
     pub connection: AtomicConnection,
     pub boards: Repository<BoardAggregate>,
@@ -18,8 +17,8 @@ pub struct UnitOfWork {
 }
 
 impl UnitOfWork {
-    pub fn new(connection: AtomicConnection) -> Arc<Mutex<Self>> {
-        Arc::new(Mutex::new(Self {
+    pub fn new(connection: AtomicConnection) -> AtomicUnitOfWork {
+        Arc::new(RwLock::new(Self {
             connection: connection.clone(),
             boards: Repository::new(connection.clone()),
             auths: Repository::new(connection),
@@ -75,6 +74,7 @@ mod test_unit_of_work {
     use uuid::Uuid;
 
     use crate::adapters::database::Connection;
+
     use crate::adapters::repositories::TRepository;
     use crate::domain::board::commands::CreateBoard;
     use crate::domain::board::{
@@ -102,7 +102,7 @@ mod test_unit_of_work {
                     ))
                     .build();
                 let id: String = boardaggregate.board.id.to_string();
-                let mut uow = uow.lock().await;
+                let mut uow = uow.write().await;
                 uow.begin().await;
                 uow.boards.add(boardaggregate).await.unwrap();
                 uow.commit().await.unwrap();
@@ -125,7 +125,7 @@ mod test_unit_of_work {
                     ))
                     .build();
                 let id: String = boardaggregate.board.id.to_string();
-                let mut uow = uow.lock().await;
+                let mut uow = uow.write().await;
                 uow.begin().await;
                 uow.boards.add(boardaggregate).await.unwrap();
                 uow.rollback().await.unwrap();
@@ -157,8 +157,7 @@ mod test_unit_of_work {
                     state: BoardState::Published,
                 });
                 let id: String = boardaggregate.board.id.to_string();
-
-                let mut uow = uow.lock().await;
+                let mut uow = uow.write().await;
                 uow.begin().await;
                 uow.boards.add(boardaggregate).await.unwrap();
                 uow.commit().await.unwrap();

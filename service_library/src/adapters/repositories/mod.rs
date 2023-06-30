@@ -46,7 +46,7 @@ pub trait TRepository {
         aggregate: impl AsRef<Self::Aggregate> + Send + Sync,
     ) -> Result<String, ApplicationError>;
 
-    async fn get(&mut self, aggregate_id: &str) -> Result<Self::Aggregate, ApplicationError>;
+    async fn get(&self, aggregate_id: &str) -> Result<Self::Aggregate, ApplicationError>;
 
     async fn update(
         &mut self,
