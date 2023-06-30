@@ -1,6 +1,6 @@
-use std::{env, mem, sync::Arc};
-
+use crate::domain::Message;
 use crate::utils::ApplicationError;
+use std::{collections::VecDeque, env, mem, sync::Arc};
 
 use sqlx::{
     postgres::{PgPool, PgPoolOptions},
@@ -10,10 +10,10 @@ use tokio::sync::RwLock;
 
 pub type AtomicConnection = Arc<RwLock<Connection>>;
 
-#[derive(Debug)]
 pub struct Connection {
     pub executor: Executor,
     pub pool: PgPool,
+    pub events: VecDeque<Box<dyn Message>>,
 }
 
 impl Connection {
@@ -28,6 +28,7 @@ impl Connection {
         Ok(Arc::new(RwLock::new(Self {
             pool: db_pool,
             executor: Executor::NotSet,
+            events: Default::default(),
         })))
     }
 
@@ -52,6 +53,9 @@ impl Connection {
                 Err(ApplicationError::TransactionError)
             }
         }
+    }
+    pub fn events(&mut self) -> VecDeque<Box<dyn Message>> {
+        mem::take(&mut self.events)
     }
 
     pub async fn commit(&mut self) -> Result<(), ApplicationError> {

@@ -4,15 +4,12 @@ use crate::{adapters::database::AtomicConnection, domain::Message};
 
 use crate::domain::auth::AuthAggregate;
 
+use super::{Repository, TRepository};
 use crate::utils::ApplicationError;
 use async_trait::async_trait;
 
-use super::{Repository, TRepository};
-
 #[async_trait]
-impl TRepository for Repository<AuthAggregate> {
-    type Aggregate = AuthAggregate;
-
+impl TRepository<AuthAggregate> for Repository<AuthAggregate> {
     fn new(connection: AtomicConnection) -> Self {
         Self {
             connection,
@@ -27,21 +24,15 @@ impl TRepository for Repository<AuthAggregate> {
         self.events = events
     }
 
-    async fn _add(
-        &mut self,
-        _aggregate: impl AsRef<Self::Aggregate> + Send + Sync,
-    ) -> Result<String, ApplicationError> {
+    async fn _add(&mut self, _aggregate: &AuthAggregate) -> Result<String, ApplicationError> {
         unimplemented!()
     }
 
-    async fn get(&self, _aggregate_id: &str) -> Result<Self::Aggregate, ApplicationError> {
+    async fn get(&self, _aggregate_id: &str) -> Result<AuthAggregate, ApplicationError> {
         unimplemented!()
     }
 
-    async fn _update(
-        &mut self,
-        _aggregate: impl AsRef<Self::Aggregate> + Send + Sync,
-    ) -> Result<(), ApplicationError> {
+    async fn _update(&mut self, _aggregate: &AuthAggregate) -> Result<(), ApplicationError> {
         unimplemented!()
     }
 

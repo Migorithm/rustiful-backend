@@ -7,9 +7,9 @@ use crate::domain::{builder::*, Message};
 
 use crate::utils::ApplicationError;
 use async_trait::async_trait;
-use std::borrow::Borrow;
 
 use std::collections::VecDeque;
+
 use std::str::FromStr;
 
 use uuid::Uuid;
@@ -17,9 +17,7 @@ use uuid::Uuid;
 use super::{Repository, TRepository};
 
 #[async_trait]
-impl TRepository for Repository<BoardAggregate> {
-    type Aggregate = BoardAggregate;
-
+impl TRepository<BoardAggregate> for Repository<BoardAggregate> {
     fn new(connection: AtomicConnection) -> Self {
         Self {
             connection,
@@ -38,11 +36,8 @@ impl TRepository for Repository<BoardAggregate> {
         &self.connection
     }
 
-    async fn _add(
-        &mut self,
-        aggregate: impl AsRef<BoardAggregate> + Send + Sync,
-    ) -> Result<String, ApplicationError> {
-        let board = &aggregate.as_ref().board;
+    async fn _add(&mut self, aggregate: &BoardAggregate) -> Result<String, ApplicationError> {
+        let board = &aggregate.board;
 
         sqlx::query_as!(
             Board,
@@ -114,16 +109,13 @@ impl TRepository for Repository<BoardAggregate> {
         Ok(board_aggregate)
     }
 
-    async fn _update(
-        &mut self,
-        aggregate: impl AsRef<BoardAggregate> + Send + Sync,
-    ) -> Result<(), ApplicationError> {
-        let board = &aggregate.borrow().as_ref().board;
+    async fn _update(&mut self, aggregate: &BoardAggregate) -> Result<(), ApplicationError> {
+        let board = &aggregate.board;
 
         let mut to_be_added_comment: Option<&Comment> = None;
         let mut to_be_updated_comment: Option<&Comment> = None;
 
-        for comment in aggregate.as_ref().comments.iter() {
+        for comment in aggregate.comments.iter() {
             if comment.state == CommentState::Pending {
                 to_be_added_comment = Some(comment);
                 break;

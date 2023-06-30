@@ -2,13 +2,10 @@ mod helpers;
 
 #[cfg(test)]
 mod repository_tests {
-
-    use std::str::FromStr;
-
     use crate::helpers::functions::*;
-
     use service_library::adapters::database::Connection;
     use service_library::adapters::repositories::{Repository, TRepository};
+    use std::str::FromStr;
 
     use service_library::domain::board::commands::EditBoard;
     use service_library::domain::board::entity::BoardState;
@@ -48,9 +45,9 @@ mod repository_tests {
             '_tranasction_block: {
                 connection.write().await.begin().await.unwrap();
 
-                let mut board = board_create_helper(BoardState::Unpublished);
+                let mut board_aggregate = board_create_helper(BoardState::Unpublished);
 
-                id = board_repo.add(&mut board).await.unwrap();
+                id = board_repo.add(&mut board_aggregate).await.unwrap();
                 connection.write().await.commit().await.unwrap();
             }
 
@@ -72,9 +69,9 @@ mod repository_tests {
             '_transaction_block: {
                 connection.write().await.begin().await.unwrap();
 
-                let mut board = board_create_helper(BoardState::Published);
+                let mut board_aggregate = board_create_helper(BoardState::Published);
 
-                id = board_repo.add(&mut board).await.unwrap();
+                id = board_repo.add(&mut board_aggregate).await.unwrap();
 
                 connection.write().await.commit().await.unwrap();
             }
@@ -115,7 +112,7 @@ mod repository_tests {
                     state: Some(BoardState::Deleted),
                 });
 
-                board_repo.update(board_aggregate).await.unwrap();
+                board_repo.update(&mut board_aggregate).await.unwrap();
                 connection.write().await.commit().await.unwrap();
             }
             '_test_block3: {
@@ -160,7 +157,10 @@ mod repository_tests {
                 let new_author = Uuid::new_v4();
                 initial_board.author = new_author;
                 initial_board.content = "Something else".to_string();
-                board_repo.update(initial_board_aggregate).await.unwrap();
+                board_repo
+                    .update(&mut initial_board_aggregate)
+                    .await
+                    .unwrap();
 
                 connection.write().await.commit().await.unwrap();
 
@@ -203,7 +203,7 @@ mod repository_tests {
                     .take_comments(vec![comment]);
 
                 connection.write().await.begin().await.unwrap();
-                board_repo.update(board_builder.build()).await.unwrap();
+                board_repo.update(&mut board_builder.build()).await.unwrap();
                 connection.write().await.commit().await.unwrap();
             }
 

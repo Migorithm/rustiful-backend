@@ -4,8 +4,10 @@ mod helpers;
 mod test_outbox {
     use crate::helpers::functions::*;
     use core::panic;
+    use service_library::adapters::repositories::Repository;
     use service_library::domain::board::commands::CreateBoard;
     use service_library::domain::board::events::BoardCreated;
+    use service_library::domain::board::BoardAggregate;
     use service_library::services::handlers::ServiceHandler;
     use uuid::Uuid;
 
@@ -29,16 +31,15 @@ mod test_outbox {
             state: BoardState::Published,
         };
 
-        let uow = UnitOfWork::new(connection.clone());
-        match ServiceHandler::create_board(cmd, uow.clone()).await {
+        let uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(connection.clone());
+        match ServiceHandler::create_board(cmd, connection.clone()).await {
             Err(err) => '_fail_case: {
                 panic!("Service Handling Failed! {}", err)
             }
             Ok(response) => '_test: {
-                let uow = UnitOfWork::new(connection);
                 let id: String = response.try_into().unwrap();
 
-                if let Err(err) = uow.read().await.boards.get(&id).await {
+                if let Err(err) = uow.repository.get(&id).await {
                     panic!("Fetching newly created object failed! : {}", err);
                 };
             }

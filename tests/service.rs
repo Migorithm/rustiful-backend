@@ -7,10 +7,11 @@ pub mod service_tests {
     use crate::helpers::functions::*;
 
     use service_library::adapters::database::Connection;
-    use service_library::adapters::repositories::TRepository;
+    use service_library::adapters::repositories::{Repository, TRepository};
 
     use service_library::domain::board::commands::{AddComment, CreateBoard, EditBoard};
     use service_library::domain::board::entity::BoardState;
+    use service_library::domain::board::BoardAggregate;
 
     use service_library::services::handlers::ServiceHandler;
     use service_library::services::unit_of_work::UnitOfWork;
@@ -28,15 +29,15 @@ pub mod service_tests {
                 state: BoardState::Published,
             };
 
-            let uow = UnitOfWork::new(connection.clone());
-            match ServiceHandler::create_board(cmd, uow.clone()).await {
+            let uow =
+                UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(connection.clone());
+            match ServiceHandler::create_board(cmd, connection.clone()).await {
                 Err(err) => '_fail_case: {
                     panic!("Service Handling Failed! {}", err)
                 }
                 Ok(id) => '_test: {
-                    let uow = UnitOfWork::new(connection.clone());
                     let id: String = id.try_into().unwrap();
-                    if let Err(err) = uow.read().await.boards.get(&id).await {
+                    if let Err(err) = uow.repository.get(&id).await {
                         panic!("Fetching newly created object failed! : {}", err);
                     };
                 }
@@ -51,7 +52,8 @@ pub mod service_tests {
             let connection = Connection::new().await.unwrap();
 
             let id: String;
-            let uow = UnitOfWork::new(connection.clone());
+            let uow =
+                UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(connection.clone());
             '_preparation_block: {
                 let mut board_repo = board_repository_helper(connection.clone()).await;
 
@@ -73,14 +75,12 @@ pub mod service_tests {
 
                 let id = cmd.id.clone().to_string();
 
-                match ServiceHandler::edit_board(cmd, uow.clone()).await {
+                match ServiceHandler::edit_board(cmd, connection.clone()).await {
                     Err(err) => '_fail_case: {
                         panic!("Service Handling Failed! {}", err)
                     }
                     Ok(_res) => {
-                        let uow = UnitOfWork::new(connection.clone());
-
-                        if let Ok(board_aggregate) = uow.read().await.boards.get(&id).await {
+                        if let Ok(board_aggregate) = uow.repository.get(&id).await {
                             assert_eq!(
                                 board_aggregate.board.content,
                                 "Changed to this".to_string()
@@ -99,7 +99,8 @@ pub mod service_tests {
             let connection = Connection::new().await.unwrap();
 
             let id: String;
-            let uow = UnitOfWork::new(connection.clone());
+            let uow =
+                UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(connection.clone());
             '_preparation_block: {
                 let mut board_repo = board_repository_helper(connection.clone()).await;
 
@@ -117,10 +118,11 @@ pub mod service_tests {
                     author: Uuid::new_v4(),
                     content: "What a beautiful day!".to_string(),
                 };
-                ServiceHandler::add_comment(cmd, uow.clone()).await.unwrap();
+                ServiceHandler::add_comment(cmd, connection.clone())
+                    .await
+                    .unwrap();
 
-                let uow = UnitOfWork::new(connection.clone());
-                if let Ok(board_aggregate) = uow.read().await.boards.get(&id).await {
+                if let Ok(board_aggregate) = uow.repository.get(&id).await {
                     assert_eq!(board_aggregate.comments.len(), 1);
                 };
             }
