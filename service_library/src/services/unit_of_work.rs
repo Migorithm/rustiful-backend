@@ -1,69 +1,75 @@
-use std::{collections::VecDeque, mem, sync::Arc};
+use std::collections::VecDeque;
+use std::marker::PhantomData;
 
-use crate::adapters::repositories::{Repository, TRepository};
-use crate::domain::Message;
+use crate::adapters::repositories::TRepository;
+use crate::domain::{Aggregate, Message};
 use crate::{
     adapters::{database::AtomicConnection, outbox::Outbox},
-    domain::{auth::AuthAggregate, board::BoardAggregate},
     utils::ApplicationResult,
 };
-use tokio::sync::RwLock;
 
-pub(crate) type AtomicUnitOfWork = Arc<RwLock<UnitOfWork>>;
-pub struct UnitOfWork {
+pub struct UnitOfWork<R, A>
+where
+    R: TRepository<A>,
+    A: Aggregate + 'static,
+{
     pub connection: AtomicConnection,
-    pub boards: Repository<BoardAggregate>,
-    pub auths: Repository<AuthAggregate>,
+    // pub boards: Repository<BoardAggregate>,
+    // pub auths: Repository<AuthAggregate>,
+    pub repository: R,
+    pub _aggregate: PhantomData<A>,
 }
 
-impl UnitOfWork {
-    pub fn new(connection: AtomicConnection) -> AtomicUnitOfWork {
-        Arc::new(RwLock::new(Self {
+impl<R, A> UnitOfWork<R, A>
+where
+    R: TRepository<A>,
+    A: Aggregate,
+{
+    pub fn new(connection: AtomicConnection) -> Self {
+        Self {
             connection: connection.clone(),
-            boards: Repository::new(connection.clone()),
-            auths: Repository::new(connection),
-        }))
+            repository: R::new(connection),
+            _aggregate: PhantomData::<A>,
+        }
     }
 
     pub async fn begin(&mut self) {
-        if let Err(err) = self.boards.connection().write().await.begin().await {
+        if let Err(err) = self.connection.write().await.begin().await {
             eprintln!("Transaction Error! : {}", err);
         }
     }
 
-    pub async fn commit(&mut self) -> ApplicationResult<()> {
+    pub async fn commit(mut self) -> ApplicationResult<()> {
+        // To drop uow itself!
         self._save_outboxes(self.connection.clone()).await?;
+        self._collect_events().await;
         self.connection.write().await.commit().await?;
+
         Ok(())
     }
 
-    pub async fn rollback(&mut self) -> ApplicationResult<()> {
-        self.boards.connection().write().await.rollback().await?;
+    pub async fn rollback(self) -> ApplicationResult<()> {
+        self.connection.write().await.rollback().await?;
         Ok(())
     }
     pub async fn _save_outboxes(&self, connection: AtomicConnection) -> ApplicationResult<()> {
         Outbox::add(
             connection,
-            self.boards
-                ._collect_outbox()
-                .chain(self.auths._collect_outbox())
-                .collect::<Vec<_>>(),
+            self.repository._collect_outbox().collect::<Vec<_>>(),
         )
         .await?;
 
         Ok(())
     }
-    pub fn _collect_events(&mut self) -> VecDeque<Box<dyn Message>> {
+    pub async fn _collect_events(&mut self) {
         let mut events: VecDeque<Box<dyn Message>> =
-            VecDeque::with_capacity(self.boards.events.len() + self.auths.events.len());
-        mem::take(&mut self.boards.events)
-            .into_iter()
-            .for_each(|e| events.push_back(e));
+            VecDeque::with_capacity(self.repository.get_events().len());
+        self.repository
+            .get_events()
+            .iter()
+            .for_each(|e| events.push_back(e.message_clone()));
 
-        mem::take(&mut self.auths.events)
-            .into_iter()
-            .for_each(|e| events.push_back(e));
-        events
+        self.connection.write().await.events = events;
     }
 }
 
@@ -75,7 +81,7 @@ mod test_unit_of_work {
 
     use crate::adapters::database::Connection;
 
-    use crate::adapters::repositories::TRepository;
+    use crate::adapters::repositories::{Repository, TRepository};
     use crate::domain::board::commands::CreateBoard;
     use crate::domain::board::{
         entity::{Board, BoardState},
@@ -89,11 +95,10 @@ mod test_unit_of_work {
     async fn test_unit_of_work() {
         run_test(async {
             let connection = Connection::new().await.unwrap();
-            let uow = UnitOfWork::new(connection);
 
             '_transaction_block: {
                 let builder = BoardAggregate::builder();
-                let boardaggregate = builder
+                let mut boardaggregate = builder
                     .take_board(Board::new(
                         Uuid::new_v4(),
                         "Title!",
@@ -102,13 +107,18 @@ mod test_unit_of_work {
                     ))
                     .build();
                 let id: String = boardaggregate.board.id.to_string();
-                let mut uow = uow.write().await;
+                let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                    connection.clone(),
+                );
                 uow.begin().await;
-                uow.boards.add(boardaggregate).await.unwrap();
+                uow.repository.add(&mut boardaggregate).await.unwrap();
                 uow.commit().await.unwrap();
 
                 '_test_block: {
-                    if let Err(err) = uow.boards.get(&id).await {
+                    let uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                        connection.clone(),
+                    );
+                    if let Err(err) = uow.repository.get(&id).await {
                         panic!("Fetch Error!:{}", err)
                     };
                 }
@@ -116,7 +126,7 @@ mod test_unit_of_work {
 
             '_transaction_block: {
                 let builder = BoardAggregate::builder();
-                let boardaggregate = builder
+                let mut boardaggregate = builder
                     .take_board(Board::new(
                         Uuid::new_v4(),
                         "Title!",
@@ -125,13 +135,18 @@ mod test_unit_of_work {
                     ))
                     .build();
                 let id: String = boardaggregate.board.id.to_string();
-                let mut uow = uow.write().await;
+                let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                    connection.clone(),
+                );
                 uow.begin().await;
-                uow.boards.add(boardaggregate).await.unwrap();
+                uow.repository.add(&mut boardaggregate).await.unwrap();
                 uow.rollback().await.unwrap();
 
                 '_test_block: {
-                    if let Ok(_val) = uow.boards.get(&id).await {
+                    let uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                        connection.clone(),
+                    );
+                    if let Ok(_val) = uow.repository.get(&id).await {
                         panic!("Shouldn't be able to fetch after rollback!!")
                     };
                 }
@@ -144,7 +159,7 @@ mod test_unit_of_work {
     async fn test_unit_of_work_event_collection() {
         run_test(async {
             let connection = Connection::new().await.unwrap();
-            let uow = UnitOfWork::new(connection);
+
             '_transaction_block: {
                 let builder = BoardAggregate::builder();
                 let mut boardaggregate = builder.build();
@@ -157,21 +172,22 @@ mod test_unit_of_work {
                     state: BoardState::Published,
                 });
                 let id: String = boardaggregate.board.id.to_string();
-                let mut uow = uow.write().await;
+                let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                    connection.clone(),
+                );
                 uow.begin().await;
-                uow.boards.add(boardaggregate).await.unwrap();
+                uow.repository.add(&mut boardaggregate).await.unwrap();
                 uow.commit().await.unwrap();
 
                 '_test_block: {
-                    if let Err(err) = uow.boards.get(&id).await {
+                    let uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                        connection.clone(),
+                    );
+                    if let Err(err) = uow.repository.get(&id).await {
                         panic!("Fetch Error!:{}", err)
                     };
-                    let vec = uow._collect_events();
+                    let vec = &connection.read().await.events;
                     assert_eq!(vec.len(), 1);
-
-                    // When you try it again, it should be empty
-                    let vec = uow._collect_events();
-                    assert_eq!(vec.len(), 0)
                 }
             }
         })

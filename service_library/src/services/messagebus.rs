@@ -20,10 +20,7 @@ use std::{
 #[cfg(test)]
 use std::sync::atomic::AtomicI32;
 
-use super::{
-    handlers::Future,
-    unit_of_work::{AtomicUnitOfWork, UnitOfWork},
-};
+use super::handlers::Future;
 
 type EventHandler<T> =
     HashMap<String, Vec<Box<dyn Fn(Box<dyn Message>, T) -> Future<ServiceResponse> + Send + Sync>>>;
@@ -54,24 +51,17 @@ impl MessageBus {
     where
         C: Command + AnyTrait,
     {
-        let uow = UnitOfWork::new(self.connection.clone());
-
-        //*
-        // ! We cannnot tell if handler requires or only require uow.
-        // ! so it's better to take all handlers and inject dependencies so we can simply pass message
-        // ! Dependency injection! - through boostrapping
-        //  */
         let res = command_handler().get(&message.type_id()).ok_or_else(|| {
             eprintln!("Unprocessable Command Given!");
             ApplicationError::NotFound
-        })?(message.as_any(), uow.clone())
+        })?(message.as_any(), self.connection.clone())
         .await?;
 
-        let mut queue = uow.clone().write().await._collect_events();
+        let mut queue = self.connection.write().await.events();
         while let Some(msg) = queue.pop_front() {
             // * Logging!
 
-            match self.handle_event(msg, uow.clone()).await {
+            match self.handle_event(msg, self.connection.clone()).await {
                 Err(ApplicationError::StopSentinel) => {
                     eprintln!("Stop Sentinel Reached!");
                     break;
@@ -84,25 +74,25 @@ impl MessageBus {
                 }
             }
 
-            for new_event in uow.clone().write().await._collect_events() {
+            for new_event in self.connection.write().await.events() {
                 queue.push_back(new_event);
             }
         }
-        drop(uow);
+
         Ok(res)
     }
 
     async fn handle_event(
         &self,
         msg: Box<dyn Message>,
-        uow: AtomicUnitOfWork,
+        conn: AtomicConnection,
     ) -> ApplicationResult<()> {
         let event_handler = event_handler();
         for handler in event_handler.get(msg.topic()).ok_or_else(|| {
             eprintln!("Unprocessable Event Given!");
             ApplicationError::NotFound
         })? {
-            handler(msg.message_clone(), uow.clone()).await?;
+            handler(msg.message_clone(), conn.clone()).await?;
 
             #[cfg(test)]
             {
@@ -110,13 +100,13 @@ impl MessageBus {
                     .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             }
         }
-        drop(uow);
+        drop(conn);
         Ok(())
     }
 }
 
-fn command_handler() -> &'static CommandHandler<AtomicUnitOfWork> {
-    static PTR: AtomicPtr<CommandHandler<AtomicUnitOfWork>> = AtomicPtr::new(std::ptr::null_mut());
+fn command_handler() -> &'static CommandHandler<AtomicConnection> {
+    static PTR: AtomicPtr<CommandHandler<AtomicConnection>> = AtomicPtr::new(std::ptr::null_mut());
     let mut p = PTR.load(Acquire);
 
     if p.is_null() {
@@ -132,8 +122,8 @@ fn command_handler() -> &'static CommandHandler<AtomicUnitOfWork> {
     unsafe { &*p }
 }
 
-fn event_handler() -> &'static EventHandler<AtomicUnitOfWork> {
-    static PTR: AtomicPtr<EventHandler<AtomicUnitOfWork>> = AtomicPtr::new(std::ptr::null_mut());
+fn event_handler() -> &'static EventHandler<AtomicConnection> {
+    static PTR: AtomicPtr<EventHandler<AtomicConnection>> = AtomicPtr::new(std::ptr::null_mut());
     let mut p = PTR.load(Acquire);
 
     if p.is_null() {
