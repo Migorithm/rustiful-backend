@@ -1,38 +1,23 @@
 use crate::{
     adapters::database::{AtomicConnection, Connection},
+    bootstrap::{command_handler, event_handler, CommandHandler, EventHandler},
     domain::{
         commands::{Command, ServiceResponse},
         AnyTrait, Message,
     },
-    services::handlers::{init_command_handler, init_event_handler},
     utils::{ApplicationError, ApplicationResult},
 };
-use std::{
-    any::{Any, TypeId},
-    collections::HashMap,
-    sync::{
-        atomic::AtomicPtr,
-        atomic::Ordering::{Acquire, Release},
-        Arc,
-    },
-};
+use std::sync::Arc;
 
 #[cfg(test)]
 use std::sync::atomic::AtomicI32;
-
-use super::handlers::Future;
-
-type EventHandler<T> =
-    HashMap<String, Vec<Box<dyn Fn(Box<dyn Message>, T) -> Future<ServiceResponse> + Send + Sync>>>;
-type CommandHandler<T> = HashMap<
-    TypeId,
-    Box<dyn Fn(Box<dyn Any + Send + Sync>, T) -> Future<ServiceResponse> + Send + Sync>,
->;
 
 pub struct MessageBus {
     #[cfg(test)]
     pub book_keeper: AtomicI32,
     pub connection: AtomicConnection,
+    command_handler: &'static CommandHandler<AtomicConnection>,
+    event_handler: &'static EventHandler<AtomicConnection>,
 }
 
 impl MessageBus {
@@ -43,6 +28,8 @@ impl MessageBus {
             connection: Connection::new()
                 .await
                 .expect("Connection Creation Failed!"),
+            command_handler: command_handler(),
+            event_handler: event_handler(),
         }
         .into()
     }
@@ -51,10 +38,13 @@ impl MessageBus {
     where
         C: Command + AnyTrait,
     {
-        let res = command_handler().get(&message.type_id()).ok_or_else(|| {
-            eprintln!("Unprocessable Command Given!");
-            ApplicationError::NotFound
-        })?(message.as_any(), self.connection.clone())
+        let res = self
+            .command_handler
+            .get(&message.type_id())
+            .ok_or_else(|| {
+                eprintln!("Unprocessable Command Given!");
+                ApplicationError::NotFound
+            })?(message.as_any(), self.connection.clone())
         .await?;
 
         let mut queue = self.connection.write().await.events();
@@ -87,8 +77,7 @@ impl MessageBus {
         msg: Box<dyn Message>,
         conn: AtomicConnection,
     ) -> ApplicationResult<()> {
-        let event_handler = event_handler();
-        for handler in event_handler.get(msg.topic()).ok_or_else(|| {
+        for handler in self.event_handler.get(msg.topic()).ok_or_else(|| {
             eprintln!("Unprocessable Event Given!");
             ApplicationError::NotFound
         })? {
@@ -103,40 +92,6 @@ impl MessageBus {
         drop(conn);
         Ok(())
     }
-}
-
-fn command_handler() -> &'static CommandHandler<AtomicConnection> {
-    static PTR: AtomicPtr<CommandHandler<AtomicConnection>> = AtomicPtr::new(std::ptr::null_mut());
-    let mut p = PTR.load(Acquire);
-
-    if p.is_null() {
-        p = Box::into_raw(Box::new(init_command_handler()));
-        if let Err(e) = PTR.compare_exchange(std::ptr::null_mut(), p, Release, Acquire) {
-            // Safety: p comes from Box::into_raw right above
-            // and wasn't whared with any other thread
-            drop(unsafe { Box::from_raw(p) });
-            p = e;
-        }
-    }
-    // Safety: p is not null and points to a properly initialized value
-    unsafe { &*p }
-}
-
-fn event_handler() -> &'static EventHandler<AtomicConnection> {
-    static PTR: AtomicPtr<EventHandler<AtomicConnection>> = AtomicPtr::new(std::ptr::null_mut());
-    let mut p = PTR.load(Acquire);
-
-    if p.is_null() {
-        p = Box::into_raw(Box::new(init_event_handler()));
-        if let Err(e) = PTR.compare_exchange(std::ptr::null_mut(), p, Release, Acquire) {
-            // Safety: p comes from Box::into_raw right above
-            // and wasn't whared with any other thread
-            drop(unsafe { Box::from_raw(p) });
-            p = e;
-        }
-    }
-    // Safety: p is not null and points to a properly initialized value
-    unsafe { &*p }
 }
 
 // ----------------------------------------------------------------------- //
