@@ -1,5 +1,3 @@
-use std::any::{Any, TypeId};
-use std::collections::HashMap;
 use std::pin::Pin;
 
 use crate::adapters::database::AtomicConnection;
@@ -114,67 +112,3 @@ impl EventHandler {
         })
     }
 }
-
-macro_rules! command_handler {
-    (
-        [$iden:ident, $injectable:ty] ; {$($command:ty:$handler:expr),*}
-    )
-        => {
-        pub fn init_command_handler() -> HashMap::<TypeId,Box<dyn Fn(Box<dyn Any + Send + Sync>, $injectable ) -> Future<ServiceResponse> + Send + Sync>>{
-            let mut map: HashMap::<_,Box<dyn Fn(_, _ ) -> Future<_> + Send + Sync>> = HashMap::new();
-            $(
-                map.insert(
-                    TypeId::of::<$command>(),
-                    Box::new(
-                        |c:Box<dyn Any+Send+Sync>, $iden: $injectable |->Future<ServiceResponse>{
-                            $handler(*c.downcast::<$command>().unwrap(),$iden)
-                        }
-                    )
-                );
-            )*
-            map
-        }
-    };
-}
-
-macro_rules! event_handler {
-    (
-        [$iden:ident, $injectable:ty] ; {$($event:ty: [$($handler:expr),* ]),*}
-    ) =>{
-        pub fn init_event_handler() -> HashMap<String, Vec<Box<dyn Fn(Box<dyn Message>, $injectable) -> Future<ServiceResponse> + Send + Sync>>>{
-            let mut map : HashMap<String, Vec<Box<dyn Fn(_, _) -> Future<_> + Send + Sync>>> = HashMap::new();
-            $(
-                map.insert(
-                    stringify!($event).into(),
-                    vec![
-                        $(
-                            Box::new(
-                                |e, $iden: $injectable| -> Future<ServiceResponse>{
-                                    $handler(e,$iden)
-                                }
-                                ),
-                        )*
-                    ]
-                );
-            )*
-            map
-        }
-    };
-}
-
-command_handler!(
-    [conn, AtomicConnection];
-    {
-        CreateBoard: ServiceHandler::create_board,
-        EditBoard: ServiceHandler::edit_board,
-        AddComment: ServiceHandler::add_comment,
-        EditComment: ServiceHandler::edit_comment,
-        Outbox: ServiceHandler::handle_outbox
-    }
-);
-event_handler!(
-    [conn,AtomicConnection];
-    {
-        BoardCreated : [EventHandler::test_event_handler,EventHandler::test_event_handler2]
-    }
-);
