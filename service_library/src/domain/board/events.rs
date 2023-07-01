@@ -33,15 +33,11 @@ impl Message for BoardCreated {
     fn metadata(&self) -> MessageMetadata {
         MessageMetadata {
             aggregate_id: self.id.to_string(),
-            topic: self.topic().into(),
+            topic: "BoardCreated".into(),
         }
     }
     fn externally_notifiable(&self) -> bool {
         true
-    }
-
-    fn topic(&self) -> &str {
-        "BoardCreated"
     }
 
     fn message_clone(&self) -> Box<dyn Message> {
@@ -56,14 +52,11 @@ impl Message for BoardUpdated {
     fn metadata(&self) -> MessageMetadata {
         MessageMetadata {
             aggregate_id: self.id.to_string(),
-            topic: self.topic().into(),
+            topic: "BoardUpdated".into(),
         }
     }
     fn externally_notifiable(&self) -> bool {
         false
-    }
-    fn topic(&self) -> &str {
-        "BoardUpdated"
     }
 
     fn message_clone(&self) -> Box<dyn Message> {
@@ -78,14 +71,11 @@ impl Message for BoardCommentAdded {
     fn metadata(&self) -> MessageMetadata {
         MessageMetadata {
             aggregate_id: self.id.to_string(),
-            topic: self.topic().into(),
+            topic: "BoardCommentAdded".into(),
         }
     }
     fn externally_notifiable(&self) -> bool {
         false
-    }
-    fn topic(&self) -> &str {
-        "BoardCommentAdded"
     }
 
     fn message_clone(&self) -> Box<dyn Message> {

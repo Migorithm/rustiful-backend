@@ -80,10 +80,15 @@ impl MessageBus {
         msg: Box<dyn Message>,
         conn: AtomicConnection,
     ) -> ApplicationResult<()> {
-        for handler in self.event_handler.get(msg.topic()).ok_or_else(|| {
-            eprintln!("Unprocessable Event Given!");
-            ApplicationError::NotFound
-        })? {
+        // ! msg.topic() returns the name of event. It is crucial that it corresponds to the key registered on Event Handler.
+        for handler in self
+            .event_handler
+            .get(&msg.metadata().topic)
+            .ok_or_else(|| {
+                eprintln!("Unprocessable Event Given!");
+                ApplicationError::NotFound
+            })?
+        {
             handler(msg.message_clone(), conn.clone()).await?;
 
             #[cfg(test)]
@@ -107,7 +112,7 @@ pub mod test_messagebus {
     use crate::domain::board::commands::{AddComment, CreateBoard, EditBoard};
     use crate::domain::board::BoardAggregate;
     use crate::domain::commands::ServiceResponse;
-    use crate::services::messagebus::MessageBus;
+
     use crate::utils::test_components::components::*;
 
     use uuid::Uuid;

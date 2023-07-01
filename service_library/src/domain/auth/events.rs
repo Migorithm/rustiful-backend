@@ -25,15 +25,12 @@ impl Message for AccountCreated {
     fn metadata(&self) -> MessageMetadata {
         MessageMetadata {
             aggregate_id: self.id.to_string(),
-            topic: self.topic().to_string(),
+            topic: "AccountCreated".to_string(),
         }
     }
 
     fn externally_notifiable(&self) -> bool {
         false
-    }
-    fn topic(&self) -> &str {
-        "AccountCreated"
     }
 
     fn message_clone(&self) -> Box<dyn Message> {
@@ -48,15 +45,12 @@ impl Message for AccountUpdated {
     fn metadata(&self) -> MessageMetadata {
         MessageMetadata {
             aggregate_id: self.id.to_string(),
-            topic: self.topic().to_string(),
+            topic: "AccountUpdated".to_string(),
         }
     }
 
     fn externally_notifiable(&self) -> bool {
         false
-    }
-    fn topic(&self) -> &str {
-        "AccountUpdated"
     }
 
     fn message_clone(&self) -> Box<dyn Message> {

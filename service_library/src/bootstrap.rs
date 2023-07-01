@@ -9,7 +9,11 @@ use std::{
 
 use crate::{
     adapters::{database::AtomicConnection, outbox::Outbox},
-    domain::{board::commands::*, commands::ServiceResponse, Message},
+    domain::{
+        board::{commands::*, events::BoardCreated},
+        commands::ServiceResponse,
+        Message,
+    },
     services::{
         handlers::{self, Future, ServiceHandler},
         messagebus::MessageBus,
@@ -28,7 +32,6 @@ impl Boostrap {
 pub struct Dependency;
 
 impl Dependency {
-    // ! Test Dependency Used in `test_event_handler` - subject to being augmented
     fn some_dependency(_arg1: String, _arg2: i32) -> ServiceResponse {
         ServiceResponse::Empty(())
     }
@@ -55,8 +58,11 @@ macro_rules! command_handler {
                     TypeId::of::<$command>(),
                     Box::new(
                         |c:Box<dyn Any+Send+Sync>, $connectable_ident: $connectable |->Future<ServiceResponse>{
+                            // * Convert event so event handler accepts not Box<dyn Message> but `event_happend` type of message.
+                            // ! Logically, as it's from TypId of command, it doesn't make to cause an error.
                             $handler(*c.downcast::<$command>().unwrap(),$connectable_ident,
                             $(
+                                // * Injectable functions are added here.
                                 $(Box::new(Dependency::$injectable),)*
                             )?
                           )
@@ -80,9 +86,14 @@ macro_rules! event_handler {
                     vec![
                         $(
                             Box::new(
-                                |e, $connectable_ident: $connectable| -> Future<ServiceResponse>{
-                                    $handler(e,$connectable_ident,
+                                |e:Box<dyn Message>, $connectable_ident: $connectable| -> Future<ServiceResponse>{
+                                    $handler(
+                                        // * Convert event so event handler accepts not Box<dyn Message> but `event_happend` type of message.
+                                        // Safety:: client should access this vector of handlers by providing the corresponding event name
+                                        // So, when it is followed, it logically doesn't make sense to cause an error.
+                                        *e.downcast::<$event>().expect("Not Convertible!"), $connectable_ident,
                                     $(
+                                        // * Injectable functions are added here.
                                         $(Box::new(Dependency::$injectable),)*
                                     )?
                                     )
