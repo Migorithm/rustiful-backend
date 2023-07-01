@@ -1,6 +1,6 @@
 use crate::{
     adapters::database::{AtomicConnection, Connection},
-    bootstrap::{command_handler, event_handler, CommandHandler, EventHandler},
+    bootstrap::{CommandHandler, EventHandler},
     domain::{
         commands::{Command, ServiceResponse},
         AnyTrait, Message,
@@ -21,15 +21,18 @@ pub struct MessageBus {
 }
 
 impl MessageBus {
-    pub async fn new() -> Arc<Self> {
+    pub async fn new(
+        command_handler: &'static CommandHandler<AtomicConnection>,
+        event_handler: &'static EventHandler<AtomicConnection>,
+    ) -> Arc<Self> {
         Self {
             #[cfg(test)]
             book_keeper: AtomicI32::new(0),
             connection: Connection::new()
                 .await
                 .expect("Connection Creation Failed!"),
-            command_handler: command_handler(),
-            event_handler: event_handler(),
+            command_handler,
+            event_handler,
         }
         .into()
     }
@@ -100,6 +103,7 @@ pub mod test_messagebus {
     use std::str::FromStr;
 
     use crate::adapters::repositories::{Repository, TRepository};
+    use crate::bootstrap::Boostrap;
     use crate::domain::board::commands::{AddComment, CreateBoard, EditBoard};
     use crate::domain::board::BoardAggregate;
     use crate::domain::commands::ServiceResponse;
@@ -111,7 +115,7 @@ pub mod test_messagebus {
     #[tokio::test]
     async fn test_message_bus_create_board() {
         run_test(async {
-            let ms = MessageBus::new().await;
+            let ms = Boostrap::message_bus().await;
             let cmd = CreateBoard {
                 author: Uuid::new_v4(),
                 title: "TestTitle".into(),
@@ -140,7 +144,7 @@ pub mod test_messagebus {
     #[tokio::test]
     async fn test_message_bus_edit_board() {
         run_test(async {
-            let ms = MessageBus::new().await;
+            let ms = Boostrap::message_bus().await;
             let create_cmd = CreateBoard {
                 author: Uuid::new_v4(),
                 title: "TestTitle".into(),
@@ -176,7 +180,7 @@ pub mod test_messagebus {
     #[tokio::test]
     async fn test_message_bus_add_comment() {
         run_test(async {
-            let ms = MessageBus::new().await;
+            let ms = Boostrap::message_bus().await;
             let create_cmd = CreateBoard {
                 author: Uuid::new_v4(),
                 title: "TestTitle".into(),
