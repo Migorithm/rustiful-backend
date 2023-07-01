@@ -8,12 +8,12 @@ use crate::domain::board::commands::{AddComment, CreateBoard, EditBoard, EditCom
 
 use crate::domain::board::BoardAggregate;
 
+use crate::domain::board::events::BoardCreated;
 use crate::domain::builder::{Buildable, Builder};
 use crate::domain::commands::ServiceResponse;
 use crate::utils::ApplicationResult;
 
 use super::unit_of_work::UnitOfWork;
-use crate::domain::Message;
 pub type Future<T> = Pin<Box<dyn futures::Future<Output = ApplicationResult<T>> + Send>>;
 
 pub struct ServiceHandler;
@@ -88,7 +88,7 @@ impl ServiceHandler {
 pub struct EventHandler;
 impl EventHandler {
     pub fn test_event_handler(
-        _event: Box<dyn Message>,
+        _event: BoardCreated,
         conn: AtomicConnection,
         some_dependency: Box<dyn Fn(String, i32) -> ServiceResponse + Send + Sync>,
     ) -> Future<ServiceResponse> {
@@ -102,7 +102,7 @@ impl EventHandler {
         })
     }
     pub fn test_event_handler2(
-        _event: Box<dyn Message>,
+        _event: BoardCreated,
         conn: AtomicConnection,
     ) -> Future<ServiceResponse> {
         Box::pin(async move {

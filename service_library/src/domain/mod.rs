@@ -3,7 +3,9 @@ pub mod board;
 pub mod builder;
 pub mod commands;
 
-use std::{any::Any, collections::VecDeque};
+use std::{any::Any, collections::VecDeque, fmt::Debug};
+
+use downcast_rs::{impl_downcast, Downcast};
 
 use crate::adapters::outbox::Outbox;
 
@@ -17,11 +19,10 @@ impl<T: Any + Clone + Send + Sync> AnyTrait for T {
     }
 }
 
-pub trait Message: Any + Sync + Send {
+pub trait Message: Sync + Send + Any + Downcast {
     fn externally_notifiable(&self) -> bool {
         false
     }
-    fn topic(&self) -> &str;
 
     fn metadata(&self) -> MessageMetadata;
     fn outbox(&self) -> Outbox {
@@ -29,7 +30,14 @@ pub trait Message: Any + Sync + Send {
         Outbox::new(metadata.aggregate_id, metadata.topic, self.state())
     }
     fn message_clone(&self) -> Box<dyn Message>;
+
     fn state(&self) -> String;
+}
+impl_downcast!(Message);
+impl Debug for dyn Message {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.metadata().topic)
+    }
 }
 
 pub struct MessageMetadata {

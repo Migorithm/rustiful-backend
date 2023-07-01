@@ -12,8 +12,6 @@ mod test_outbox {
     use service_library::services::handlers::ServiceHandler;
     use uuid::Uuid;
 
-    use service_library::services::messagebus::MessageBus;
-
     use service_library::{
         adapters::{
             database::{AtomicConnection, Connection},

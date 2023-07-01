@@ -414,6 +414,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aaf95b3e5c8f23aa320147307562d361db0ae0d51242340f558153b4eb2439b"
 
 [[package]]
+name = "downcast-rs"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
+
+[[package]]
 name = "either"
 version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1227,6 +1233,7 @@ dependencies = [
  "bcrypt",
  "chrono",
  "dotenv",
+ "downcast-rs",
  "futures",
  "serde",
  "serde_json",
@@ -1360,6 +1367,7 @@ dependencies = [
  "bcrypt",
  "chrono",
  "dotenv",
+ "downcast-rs",
  "futures",
  "serde",
  "serde_json",
