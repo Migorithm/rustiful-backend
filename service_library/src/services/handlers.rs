@@ -90,13 +90,15 @@ impl EventHandler {
     pub fn test_event_handler(
         _event: Box<dyn Message>,
         conn: AtomicConnection,
+        some_dependency: Box<dyn Fn(String, i32) -> ServiceResponse + Send + Sync>,
     ) -> Future<ServiceResponse> {
         Box::pin(async move {
             let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(conn);
             uow.begin().await;
             println!("You got here!");
             uow.commit().await?;
-            Ok(ServiceResponse::Empty(()))
+
+            Ok(some_dependency("well..".into(), 1))
         })
     }
     pub fn test_event_handler2(

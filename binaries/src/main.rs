@@ -9,7 +9,7 @@ use axum::{
 };
 use routes::board_routers;
 
-use service_library::{domain::board::commands::*, services::messagebus::MessageBus};
+use service_library::{bootstrap::Boostrap, domain::board::commands::*};
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -58,7 +58,7 @@ async fn main() {
     // ! Connection
     println!("Connections Are Being Pooled...");
 
-    let bus = MessageBus::new().await;
+    let bus = Boostrap::message_bus().await;
 
     let app = Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))

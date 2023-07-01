@@ -8,26 +8,29 @@ use std::{
 };
 
 use crate::{
-    adapters::{
-        database::{AtomicConnection, Connection},
-        outbox::Outbox,
-    },
+    adapters::{database::AtomicConnection, outbox::Outbox},
     domain::{board::commands::*, commands::ServiceResponse, Message},
-    services::handlers::{self, Future, ServiceHandler},
+    services::{
+        handlers::{self, Future, ServiceHandler},
+        messagebus::MessageBus,
+    },
 };
 
-pub struct Boostrap {
-    pub connection: AtomicConnection,
-    pub command_handler: &'static CommandHandler<AtomicConnection>,
-    pub event_handler: &'static EventHandler<AtomicConnection>,
-}
+pub struct Boostrap;
 impl Boostrap {
-    pub async fn new() -> Self {
-        Self {
-            connection: Connection::new().await.unwrap(),
-            command_handler: command_handler(),
-            event_handler: event_handler(),
-        }
+    pub async fn message_bus() -> std::sync::Arc<MessageBus> {
+        MessageBus::new(command_handler(), event_handler()).await
+    }
+}
+
+///* `Dependency` is the struct you implement injectable dependencies that will be called inside the function.
+
+pub struct Dependency;
+
+impl Dependency {
+    // ! Test Dependency Used in `test_event_handler` - subject to being augmented
+    fn some_dependency(_arg1: String, _arg2: i32) -> ServiceResponse {
+        ServiceResponse::Empty(())
     }
 }
 
@@ -40,18 +43,24 @@ pub type CommandHandler<T> = HashMap<
 
 macro_rules! command_handler {
     (
-        [$iden:ident, $injectable:ty] ; {$($command:ty:$handler:expr),*}
+        [$connectable_ident:ident, $connectable:ty] ; {$($command:ty:$handler:expr $(=>($($injectable:ident),*))? ),* }
     )
         => {
-        pub fn init_command_handler() -> HashMap::<TypeId,Box<dyn Fn(Box<dyn Any + Send + Sync>, $injectable ) -> Future<ServiceResponse> + Send + Sync>>{
+        pub fn init_command_handler() -> HashMap::<TypeId,Box<dyn Fn(Box<dyn Any + Send + Sync>, $connectable ) -> Future<ServiceResponse> + Send + Sync>>{
+
+
             let mut map: HashMap::<_,Box<dyn Fn(_, _ ) -> Future<_> + Send + Sync>> = HashMap::new();
             $(
                 map.insert(
                     TypeId::of::<$command>(),
                     Box::new(
-                        |c:Box<dyn Any+Send+Sync>, $iden: $injectable |->Future<ServiceResponse>{
-                            $handler(*c.downcast::<$command>().unwrap(),$iden)
-                        }
+                        |c:Box<dyn Any+Send+Sync>, $connectable_ident: $connectable |->Future<ServiceResponse>{
+                            $handler(*c.downcast::<$command>().unwrap(),$connectable_ident,
+                            $(
+                                $(Box::new(Dependency::$injectable),)*
+                            )?
+                          )
+                        },
                     )
                 );
             )*
@@ -59,12 +68,11 @@ macro_rules! command_handler {
         }
     };
 }
-
 macro_rules! event_handler {
     (
-        [$iden:ident, $injectable:ty] ; {$($event:ty: [$($handler:expr),* ]),*}
+        [$connectable_ident:ident, $connectable:ty] ; {$($event:ty: [$($handler:expr $(=>($($injectable:ident),*))? ),* ]),*}
     ) =>{
-        pub fn init_event_handler() -> HashMap<String, Vec<Box<dyn Fn(Box<dyn Message>, $injectable) -> Future<ServiceResponse> + Send + Sync>>>{
+        pub fn init_event_handler() -> HashMap<String, Vec<Box<dyn Fn(Box<dyn Message>, $connectable) -> Future<ServiceResponse> + Send + Sync>>>{
             let mut map : HashMap<String, Vec<Box<dyn Fn(_, _) -> Future<_> + Send + Sync>>> = HashMap::new();
             $(
                 map.insert(
@@ -72,8 +80,12 @@ macro_rules! event_handler {
                     vec![
                         $(
                             Box::new(
-                                |e, $iden: $injectable| -> Future<ServiceResponse>{
-                                    $handler(e,$iden)
+                                |e, $connectable_ident: $connectable| -> Future<ServiceResponse>{
+                                    $handler(e,$connectable_ident,
+                                    $(
+                                        $(Box::new(Dependency::$injectable),)*
+                                    )?
+                                    )
                                 }
                                 ),
                         )*
@@ -85,6 +97,9 @@ macro_rules! event_handler {
     };
 }
 
+// * Among dependencies, `Connectable` dependencies shouldn't be injected sometimes because
+// * its state is usually globally managed as in conneciton pool in RDBMS.
+// * Therefore, it's adviable to specify connectables seperately.
 command_handler!(
     [conn, AtomicConnection];
     {
@@ -95,10 +110,14 @@ command_handler!(
         Outbox: ServiceHandler::handle_outbox
     }
 );
+
 event_handler!(
     [conn,AtomicConnection];
     {
-        BoardCreated : [handlers::EventHandler::test_event_handler,handlers::EventHandler::test_event_handler2]
+        BoardCreated : [
+            handlers::EventHandler::test_event_handler=>(some_dependency),
+            handlers::EventHandler::test_event_handler2
+            ]
     }
 );
 

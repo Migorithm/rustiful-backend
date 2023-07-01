@@ -5,6 +5,7 @@ mod test_outbox {
     use crate::helpers::functions::*;
     use core::panic;
     use service_library::adapters::repositories::Repository;
+    use service_library::bootstrap::Boostrap;
     use service_library::domain::board::commands::CreateBoard;
     use service_library::domain::board::events::BoardCreated;
     use service_library::domain::board::BoardAggregate;
@@ -102,7 +103,7 @@ mod test_outbox {
             outbox_setup(connection.clone()).await;
 
             '_test_case: {
-                let bus = MessageBus::new().await;
+                let bus = Boostrap::message_bus().await;
 
                 for e in Outbox::get(connection.clone()).await.unwrap() {
                     //TODO Messagebus for outbox?
