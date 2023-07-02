@@ -8,6 +8,7 @@ use crate::{
     utils::{ApplicationError, ApplicationResult},
 };
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 #[cfg(test)]
 use std::sync::atomic::AtomicI32;
@@ -15,22 +16,20 @@ use std::sync::atomic::AtomicI32;
 pub struct MessageBus {
     #[cfg(test)]
     pub book_keeper: AtomicI32,
-    pub connection: AtomicContextManager,
+
     command_handler: &'static CommandHandler<AtomicContextManager>,
     event_handler: &'static EventHandler<AtomicContextManager>,
 }
 
 impl MessageBus {
-    pub async fn new(
+    pub fn new(
         command_handler: &'static CommandHandler<AtomicContextManager>,
         event_handler: &'static EventHandler<AtomicContextManager>,
     ) -> Arc<Self> {
         Self {
             #[cfg(test)]
             book_keeper: AtomicI32::new(0),
-            connection: ContextManager::new()
-                .await
-                .expect("ContextManager Creation Failed!"),
+
             command_handler,
             event_handler,
         }
@@ -41,20 +40,23 @@ impl MessageBus {
     where
         C: Command + AnyTrait,
     {
+        let (sender, mut event_queue) = tokio::sync::mpsc::unbounded_channel::<Box<dyn Message>>();
+
+        let context_manager = ContextManager::new(sender).await;
+
         let res = self
             .command_handler
             .get(&message.type_id())
             .ok_or_else(|| {
                 eprintln!("Unprocessable Command Given!");
                 ApplicationError::NotFound
-            })?(message.as_any(), self.connection.clone())
+            })?(message.as_any(), context_manager.clone())
         .await?;
 
-        let mut queue = self.connection.write().await.events();
-        while let Some(msg) = queue.pop_front() {
+        while let Some(msg) = event_queue.recv().await {
             // * Logging!
 
-            match self.handle_event(msg, self.connection.clone()).await {
+            match self.handle_event(msg, context_manager.clone()).await {
                 Err(ApplicationError::StopSentinel) => {
                     eprintln!("Stop Sentinel Reached!");
                     break;
@@ -66,10 +68,6 @@ impl MessageBus {
                     println!("Event Handling Succeeded!")
                 }
             }
-
-            for new_event in self.connection.write().await.events() {
-                queue.push_back(new_event);
-            }
         }
 
         Ok(res)
@@ -78,7 +76,7 @@ impl MessageBus {
     async fn handle_event(
         &self,
         msg: Box<dyn Message>,
-        conn: AtomicContextManager,
+        context_manager: Arc<RwLock<ContextManager>>,
     ) -> ApplicationResult<()> {
         // ! msg.topic() returns the name of event. It is crucial that it corresponds to the key registered on Event Handler.
         for handler in self
@@ -89,7 +87,7 @@ impl MessageBus {
                 ApplicationError::NotFound
             })?
         {
-            handler(msg.message_clone(), conn.clone()).await?;
+            handler(msg.message_clone(), context_manager.clone()).await?;
 
             #[cfg(test)]
             {
@@ -97,7 +95,7 @@ impl MessageBus {
                     .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             }
         }
-        drop(conn);
+        drop(context_manager);
         Ok(())
     }
 }
@@ -106,7 +104,9 @@ impl MessageBus {
 #[cfg(test)]
 pub mod test_messagebus {
     use std::str::FromStr;
+    use std::sync::Arc;
 
+    use crate::adapters::database::{connection_pool, Executor};
     use crate::adapters::repositories::{Repository, TRepository};
     use crate::bootstrap::Boostrap;
     use crate::domain::board::commands::{AddComment, CreateBoard, EditBoard};
@@ -115,11 +115,14 @@ pub mod test_messagebus {
 
     use crate::utils::test_components::components::*;
 
+    use tokio::sync::RwLock;
     use uuid::Uuid;
 
     #[tokio::test]
     async fn test_message_bus_create_board() {
         run_test(async {
+            let pool = connection_pool().await;
+            let executor = Arc::new(RwLock::new(Executor::new(pool)));
             let ms = Boostrap::message_bus().await;
             let cmd = CreateBoard {
                 author: Uuid::new_v4(),
@@ -133,7 +136,7 @@ pub mod test_messagebus {
                 panic!("Test Failed!")
                 };
 
-                let repo = Repository::<BoardAggregate>::new(ms.connection.clone());
+                let repo = Repository::<BoardAggregate>::new(executor);
                 match repo.get(&var).await {
                     Ok(_created_board) => println!("Success!"),
                     Err(err) => {
@@ -149,6 +152,8 @@ pub mod test_messagebus {
     #[tokio::test]
     async fn test_message_bus_edit_board() {
         run_test(async {
+            let pool = connection_pool().await;
+            let executor = Arc::new(RwLock::new(Executor::new(pool)));
             let ms = Boostrap::message_bus().await;
             let create_cmd = CreateBoard {
                 author: Uuid::new_v4(),
@@ -170,7 +175,7 @@ pub mod test_messagebus {
                 let Ok(ServiceResponse::Empty(())) = ms.handle(edit_cmd).await else{
                     panic!("There must be!")
                 };
-                let repo = Repository::<BoardAggregate>::new(ms.connection.clone());
+                let repo = Repository::<BoardAggregate>::new(executor);
                 let Ok(aggregate) = repo.get(&id).await else{
                         panic!("Something wrong")
                 };
@@ -185,6 +190,8 @@ pub mod test_messagebus {
     #[tokio::test]
     async fn test_message_bus_add_comment() {
         run_test(async {
+            let pool = connection_pool().await;
+            let executor = Arc::new(RwLock::new(Executor::new(pool)));
             let ms = Boostrap::message_bus().await;
             let create_cmd = CreateBoard {
                 author: Uuid::new_v4(),
@@ -192,6 +199,7 @@ pub mod test_messagebus {
                 content: "TestContent".into(),
                 state: Default::default(),
             };
+
             let Ok(ServiceResponse::String(id)) =  ms.handle(create_cmd).await else {
                 panic!("There must be!")
             };
@@ -206,7 +214,7 @@ pub mod test_messagebus {
                     panic!("Test Failed!")
                 };
 
-                let repo = Repository::<BoardAggregate>::new(ms.connection.clone());
+                let repo = Repository::<BoardAggregate>::new(executor);
                 let Ok(aggregate) = repo.get(&id).await else{
                         panic!("Something wrong")
                 };

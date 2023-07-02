@@ -4,17 +4,19 @@ pub mod board_repository;
 use crate::domain::{Aggregate, Message};
 use crate::utils::ApplicationError;
 use async_trait::async_trait;
+use tokio::sync::RwLock;
 
 use std::collections::VecDeque;
 use std::marker::PhantomData;
+use std::sync::Arc;
 
-use super::database::AtomicContextManager;
+use super::database::Executor;
 use super::outbox::Outbox;
 
 /// The abstract central source for loading past events and committing new events.
 #[async_trait]
 pub trait TRepository<A: Aggregate + 'static> {
-    fn new(connection: AtomicContextManager) -> Self;
+    fn new(executor: Arc<RwLock<Executor>>) -> Self;
 
     fn get_events(&self) -> &VecDeque<Box<dyn Message>>;
     fn set_events(&mut self, events: VecDeque<Box<dyn Message>>);
@@ -45,12 +47,10 @@ pub trait TRepository<A: Aggregate + 'static> {
     }
 
     async fn _update(&mut self, aggregate: &A) -> Result<(), ApplicationError>;
-
-    fn connection(&self) -> &AtomicContextManager;
 }
 
 pub struct Repository<A: Aggregate> {
-    pub connection: AtomicContextManager,
+    pub executor: Arc<RwLock<Executor>>,
     pub _phantom: PhantomData<A>,
     pub events: VecDeque<Box<dyn Message>>,
 }

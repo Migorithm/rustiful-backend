@@ -1,5 +1,8 @@
+use std::sync::Arc;
+
 use chrono::{DateTime, Utc};
 
+use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::{
@@ -7,7 +10,7 @@ use crate::{
     utils::{ApplicationError, ApplicationResult},
 };
 
-use super::database::AtomicContextManager;
+use super::database::Executor;
 
 #[derive(Debug, Clone)]
 pub struct Outbox {
@@ -51,7 +54,7 @@ impl Outbox {
     }
 
     pub async fn add(
-        connection: AtomicContextManager,
+        connection: Arc<RwLock<Executor>>,
         outboxes: Vec<Self>,
     ) -> ApplicationResult<()> {
         for ob in outboxes {
@@ -74,20 +77,20 @@ impl Outbox {
         }
         Ok(())
     }
-    pub async fn get(connection: AtomicContextManager) -> ApplicationResult<Vec<Self>> {
+    pub async fn get(executor: Arc<RwLock<Executor>>) -> ApplicationResult<Vec<Self>> {
         sqlx::query_as!(
             Self,
             r#"SELECT * FROM service_outbox WHERE processed = $1"#,
             false
         )
-        .fetch_all(connection.read().await.pool)
+        .fetch_all(executor.read().await.pool)
         .await
         .map_err(|err| {
             eprintln!("{}", err);
             ApplicationError::DatabaseConnectionError(Box::new(err))
         })
     }
-    pub async fn update(&self, connection: &mut AtomicContextManager) -> ApplicationResult<()> {
+    pub async fn update(&self, executor: Arc<RwLock<Executor>>) -> ApplicationResult<()> {
         sqlx::query_as!(
             Self,
             r#" 
@@ -98,7 +101,7 @@ impl Outbox {
             true,
             self.id,
         )
-        .execute(connection.write().await.connection())
+        .execute(executor.write().await.transaction())
         .await
         .map_err(|err| {
             eprintln!("{}", err);
