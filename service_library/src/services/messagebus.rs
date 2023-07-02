@@ -40,9 +40,7 @@ impl MessageBus {
     where
         C: Command + AnyTrait,
     {
-        let (sender, mut event_queue) = tokio::sync::mpsc::unbounded_channel::<Box<dyn Message>>();
-
-        let context_manager = ContextManager::new(sender).await;
+        let context_manager = ContextManager::new().await;
 
         let res = self
             .command_handler
@@ -53,7 +51,7 @@ impl MessageBus {
             })?(message.as_any(), context_manager.clone())
         .await?;
 
-        while let Some(msg) = event_queue.recv().await {
+        while let Some(msg) = context_manager.write().await.events.pop_front() {
             // * Logging!
 
             match self.handle_event(msg, context_manager.clone()).await {

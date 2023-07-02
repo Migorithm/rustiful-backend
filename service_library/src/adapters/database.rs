@@ -1,5 +1,6 @@
 use crate::utils::ApplicationError;
 use crate::{domain::Message, utils::ApplicationResult};
+use std::collections::VecDeque;
 use std::sync::OnceLock;
 use std::{env, mem, sync::Arc};
 
@@ -8,7 +9,6 @@ use sqlx::{
     Postgres, Transaction,
 };
 
-use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::RwLock;
 
 pub type AtomicContextManager = Arc<RwLock<ContextManager>>;
@@ -16,14 +16,17 @@ pub type AtomicContextManager = Arc<RwLock<ContextManager>>;
 // ! Task Local ContextManager!
 pub struct ContextManager {
     pub pool: &'static PgPool,
-    pub sender: UnboundedSender<Box<dyn Message>>,
+    pub events: VecDeque<Box<dyn Message>>,
 }
 
 impl ContextManager {
     //TODO Creation of ContextManager - Need to be revisted
-    pub async fn new(sender: UnboundedSender<Box<dyn Message>>) -> Arc<RwLock<Self>> {
+    pub async fn new() -> Arc<RwLock<Self>> {
         let pool = connection_pool().await;
-        Arc::new(RwLock::new(Self { pool, sender }))
+        Arc::new(RwLock::new(Self {
+            pool,
+            events: Default::default(),
+        }))
     }
     pub fn executor(&self) -> Arc<RwLock<Executor>> {
         RwLock::new(Executor::new(self.pool)).into()

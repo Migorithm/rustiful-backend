@@ -90,7 +90,7 @@ mod test_unit_of_work {
     use tokio::sync::mpsc;
     use uuid::Uuid;
 
-    use crate::adapters::database::{connection_pool, ContextManager};
+    use crate::adapters::database::connection_pool;
 
     use crate::adapters::repositories::{Repository, TRepository};
     use crate::domain::board::commands::CreateBoard;
@@ -164,6 +164,7 @@ mod test_unit_of_work {
     async fn test_unit_of_work_event_collection() {
         run_test(async {
             let pool = connection_pool().await;
+            // TODO Subject to deletion
             let (sx, mut rx) = mpsc::unbounded_channel::<Box<dyn Message>>();
 
             '_transaction_block: {

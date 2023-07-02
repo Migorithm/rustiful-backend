@@ -1,7 +1,6 @@
 use std::pin::Pin;
 use std::sync::Arc;
 
-use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::RwLock;
 
 use crate::adapters::database::ContextManager;
@@ -9,7 +8,6 @@ use crate::adapters::outbox::Outbox;
 use crate::adapters::repositories::{Repository, TRepository};
 
 use crate::domain::board::commands::{AddComment, CreateBoard, EditBoard, EditComment};
-use crate::domain::Message;
 
 use crate::domain::board::BoardAggregate;
 

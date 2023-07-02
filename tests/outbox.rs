@@ -4,13 +4,13 @@ mod helpers;
 mod test_outbox {
     use crate::helpers::functions::*;
     use core::panic;
+    use service_library::adapters::repositories::Repository;
     use service_library::bootstrap::Boostrap;
     use service_library::domain::board::commands::CreateBoard;
     use service_library::domain::board::events::BoardCreated;
     use service_library::domain::board::BoardAggregate;
     use service_library::services::handlers::ServiceHandler;
-    use service_library::{adapters::repositories::Repository, domain::Message};
-    use tokio::sync::mpsc;
+
     use uuid::Uuid;
 
     use service_library::{
@@ -33,8 +33,8 @@ mod test_outbox {
         let pool = connection.read().await.pool;
 
         let uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(pool);
-        let (sx, _) = mpsc::unbounded_channel::<Box<dyn Message>>();
-        let context_manager = ContextManager::new(sx).await;
+
+        let context_manager = ContextManager::new().await;
         match ServiceHandler::create_board(cmd, context_manager).await {
             Err(err) => '_fail_case: {
                 panic!("Service Handling Failed! {}", err)
@@ -52,8 +52,7 @@ mod test_outbox {
     #[tokio::test]
     async fn test_create_board_leaves_outbox() {
         run_test(async {
-            let (sx, _) = mpsc::unbounded_channel::<Box<dyn Message>>();
-            let context_manager = ContextManager::new(sx).await;
+            let context_manager = ContextManager::new().await;
             outbox_setup(context_manager.clone()).await;
 
             '_test_case: {
@@ -75,8 +74,7 @@ mod test_outbox {
     #[tokio::test]
     async fn test_convert_event() {
         run_test(async {
-            let (sx, _) = mpsc::unbounded_channel::<Box<dyn Message>>();
-            let context_manager = ContextManager::new(sx).await;
+            let context_manager = ContextManager::new().await;
             outbox_setup(context_manager.clone()).await;
 
             '_test_case: {
@@ -105,8 +103,7 @@ mod test_outbox {
     #[tokio::test]
     async fn test_outbox_event_handled_by_messagebus() {
         run_test(async {
-            let (sx, _) = mpsc::unbounded_channel::<Box<dyn Message>>();
-            let context_manager = ContextManager::new(sx).await;
+            let context_manager = ContextManager::new().await;
             outbox_setup(context_manager.clone()).await;
 
             '_test_case: {

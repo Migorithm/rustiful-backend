@@ -5,8 +5,6 @@ mod repository_tests {
     use crate::helpers::functions::*;
     use service_library::adapters::database::ContextManager;
     use service_library::adapters::repositories::TRepository;
-    use service_library::domain::Message;
-    use tokio::sync::mpsc;
 
     use std::str::FromStr;
 
@@ -21,8 +19,7 @@ mod repository_tests {
     #[tokio::test]
     async fn test_add_board() {
         run_test(async {
-            let (sx, _) = mpsc::unbounded_channel::<Box<dyn Message>>();
-            let context_manager = ContextManager::new(sx).await;
+            let context_manager = ContextManager::new().await;
 
             let executor = context_manager.read().await.executor();
 
@@ -45,8 +42,7 @@ mod repository_tests {
     #[tokio::test]
     async fn test_get_board() {
         run_test(async {
-            let (sx, _) = mpsc::unbounded_channel::<Box<dyn Message>>();
-            let context_manager = ContextManager::new(sx).await;
+            let context_manager = ContextManager::new().await;
             let executor = context_manager.read().await.executor();
 
             let mut board_repo = board_repository_helper(executor.clone()).await;
@@ -72,8 +68,7 @@ mod repository_tests {
     #[tokio::test]
     async fn test_get_board_with_different_state() {
         run_test(async {
-            let (sx, _) = mpsc::unbounded_channel::<Box<dyn Message>>();
-            let context_manager = ContextManager::new(sx).await;
+            let context_manager = ContextManager::new().await;
             let executor = context_manager.read().await.executor();
 
             let mut board_repo = board_repository_helper(executor.clone()).await;
@@ -100,8 +95,7 @@ mod repository_tests {
     #[tokio::test]
     async fn test_delete_board() {
         run_test(async {
-            let (sx, _) = mpsc::unbounded_channel::<Box<dyn Message>>();
-            let context_manager = ContextManager::new(sx).await;
+            let context_manager = ContextManager::new().await;
             let executor = context_manager.read().await.executor();
 
             let mut board_repo = board_repository_helper(executor.clone()).await;
@@ -140,8 +134,7 @@ mod repository_tests {
     #[tokio::test]
     async fn test_update_board() {
         run_test(async {
-            let (sx, _) = mpsc::unbounded_channel::<Box<dyn Message>>();
-            let context_manager = ContextManager::new(sx).await;
+            let context_manager = ContextManager::new().await;
             let executor = context_manager.read().await.executor();
             let mut board_repo = board_repository_helper(executor.clone()).await;
             let id: String;
@@ -195,8 +188,7 @@ mod repository_tests {
     #[tokio::test]
     async fn test_create_comment() {
         run_test(async {
-            let (sx, _) = mpsc::unbounded_channel::<Box<dyn Message>>();
-            let context_manager = ContextManager::new(sx).await;
+            let context_manager = ContextManager::new().await;
             let executor = context_manager.read().await.executor();
             let mut board_repo = board_repository_helper(executor.clone()).await;
             let mut board_aggregate: BoardAggregate;

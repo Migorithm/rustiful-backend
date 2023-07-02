@@ -12,26 +12,23 @@ pub mod service_tests {
     use service_library::domain::board::commands::{AddComment, CreateBoard, EditBoard};
     use service_library::domain::board::entity::BoardState;
     use service_library::domain::board::BoardAggregate;
-    use service_library::domain::Message;
 
     use service_library::services::handlers::ServiceHandler;
     use service_library::services::unit_of_work::UnitOfWork;
-    use tokio::sync::mpsc;
+
     use uuid::Uuid;
 
     #[tokio::test]
     async fn test_create_board() {
         run_test(async {
-            let (sx, _) = mpsc::unbounded_channel::<Box<dyn Message>>();
-            let context_manager = ContextManager::new(sx).await;
-            let pool = context_manager.read().await.pool;
+            let context_manager = ContextManager::new().await;
+
             let cmd = CreateBoard {
                 author: Uuid::new_v4(),
                 title: "Title!".to_string(),
                 content: "Content".to_string(),
                 state: BoardState::Published,
             };
-            let (sx, _) = mpsc::unbounded_channel::<Box<dyn Message>>();
 
             let uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
                 context_manager.read().await.pool,
@@ -54,11 +51,10 @@ pub mod service_tests {
     #[tokio::test]
     async fn test_edit_board() {
         run_test(async {
-            let (sx, _) = mpsc::unbounded_channel::<Box<dyn Message>>();
-            let context_manager = ContextManager::new(sx).await;
+            let context_manager = ContextManager::new().await;
             let pool = context_manager.read().await.pool;
             let id: String;
-            let (sx, _) = mpsc::unbounded_channel::<Box<dyn Message>>();
+
             let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
                 context_manager.read().await.pool,
             );
@@ -106,11 +102,10 @@ pub mod service_tests {
     #[tokio::test]
     async fn test_add_comment() {
         run_test(async {
-            let (sx, _) = mpsc::unbounded_channel::<Box<dyn Message>>();
-            let context_manager = ContextManager::new(sx).await;
+            let context_manager = ContextManager::new().await;
 
             let id: String;
-            let (sx, _) = mpsc::unbounded_channel::<Box<dyn Message>>();
+
             let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
                 context_manager.read().await.pool,
             );
