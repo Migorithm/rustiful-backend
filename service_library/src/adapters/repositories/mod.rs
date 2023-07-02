@@ -8,13 +8,13 @@ use async_trait::async_trait;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
-use super::database::AtomicConnection;
+use super::database::AtomicContextManager;
 use super::outbox::Outbox;
 
 /// The abstract central source for loading past events and committing new events.
 #[async_trait]
 pub trait TRepository<A: Aggregate + 'static> {
-    fn new(connection: AtomicConnection) -> Self;
+    fn new(connection: AtomicContextManager) -> Self;
 
     fn get_events(&self) -> &VecDeque<Box<dyn Message>>;
     fn set_events(&mut self, events: VecDeque<Box<dyn Message>>);
@@ -46,11 +46,11 @@ pub trait TRepository<A: Aggregate + 'static> {
 
     async fn _update(&mut self, aggregate: &A) -> Result<(), ApplicationError>;
 
-    fn connection(&self) -> &AtomicConnection;
+    fn connection(&self) -> &AtomicContextManager;
 }
 
 pub struct Repository<A: Aggregate> {
-    pub connection: AtomicConnection,
+    pub connection: AtomicContextManager,
     pub _phantom: PhantomData<A>,
     pub events: VecDeque<Box<dyn Message>>,
 }

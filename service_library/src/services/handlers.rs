@@ -1,6 +1,6 @@
 use std::pin::Pin;
 
-use crate::adapters::database::AtomicConnection;
+use crate::adapters::database::AtomicContextManager;
 use crate::adapters::outbox::Outbox;
 use crate::adapters::repositories::{Repository, TRepository};
 
@@ -18,7 +18,7 @@ pub type Future<T> = Pin<Box<dyn futures::Future<Output = ApplicationResult<T>> 
 
 pub struct ServiceHandler;
 impl ServiceHandler {
-    pub fn create_board(cmd: CreateBoard, conn: AtomicConnection) -> Future<ServiceResponse> {
+    pub fn create_board(cmd: CreateBoard, conn: AtomicContextManager) -> Future<ServiceResponse> {
         Box::pin(async move {
             let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(conn);
             uow.begin().await;
@@ -31,7 +31,7 @@ impl ServiceHandler {
         })
     }
 
-    pub fn edit_board(cmd: EditBoard, conn: AtomicConnection) -> Future<ServiceResponse> {
+    pub fn edit_board(cmd: EditBoard, conn: AtomicContextManager) -> Future<ServiceResponse> {
         Box::pin(async move {
             let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(conn);
             uow.begin().await;
@@ -44,7 +44,7 @@ impl ServiceHandler {
         })
     }
 
-    pub fn add_comment(cmd: AddComment, conn: AtomicConnection) -> Future<ServiceResponse> {
+    pub fn add_comment(cmd: AddComment, conn: AtomicContextManager) -> Future<ServiceResponse> {
         Box::pin(async move {
             let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(conn);
             uow.begin().await;
@@ -56,7 +56,7 @@ impl ServiceHandler {
         })
     }
 
-    pub fn edit_comment(cmd: EditComment, conn: AtomicConnection) -> Future<ServiceResponse> {
+    pub fn edit_comment(cmd: EditComment, conn: AtomicContextManager) -> Future<ServiceResponse> {
         Box::pin(async move {
             let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(conn);
             uow.begin().await;
@@ -68,7 +68,7 @@ impl ServiceHandler {
         })
     }
 
-    pub fn handle_outbox(outbox: Outbox, conn: AtomicConnection) -> Future<ServiceResponse> {
+    pub fn handle_outbox(outbox: Outbox, conn: AtomicContextManager) -> Future<ServiceResponse> {
         Box::pin(async move {
             let _msg = outbox.convert_event();
             let mut uow =
@@ -89,7 +89,7 @@ pub struct EventHandler;
 impl EventHandler {
     pub fn test_event_handler(
         _event: BoardCreated,
-        conn: AtomicConnection,
+        conn: AtomicContextManager,
         some_dependency: Box<dyn Fn(String, i32) -> ServiceResponse + Send + Sync>,
     ) -> Future<ServiceResponse> {
         Box::pin(async move {
@@ -103,7 +103,7 @@ impl EventHandler {
     }
     pub fn test_event_handler2(
         _event: BoardCreated,
-        conn: AtomicConnection,
+        conn: AtomicContextManager,
     ) -> Future<ServiceResponse> {
         Box::pin(async move {
             let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(conn);

@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::{adapters::database::AtomicConnection, domain::Message};
+use crate::{adapters::database::AtomicContextManager, domain::Message};
 
 use crate::domain::auth::AuthAggregate;
 
@@ -10,7 +10,7 @@ use async_trait::async_trait;
 
 #[async_trait]
 impl TRepository<AuthAggregate> for Repository<AuthAggregate> {
-    fn new(connection: AtomicConnection) -> Self {
+    fn new(connection: AtomicContextManager) -> Self {
         Self {
             connection,
             _phantom: Default::default(),
@@ -36,7 +36,7 @@ impl TRepository<AuthAggregate> for Repository<AuthAggregate> {
         unimplemented!()
     }
 
-    fn connection(&self) -> &AtomicConnection {
+    fn connection(&self) -> &AtomicContextManager {
         &self.connection
     }
 }

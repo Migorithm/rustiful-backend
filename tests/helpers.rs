@@ -4,7 +4,7 @@ pub mod functions {
     use std::str::FromStr;
 
     use futures::Future;
-    use service_library::adapters::database::{AtomicConnection, Connection};
+    use service_library::adapters::database::{AtomicContextManager, ContextManager};
     use service_library::adapters::repositories::{Repository, TRepository};
 
     use dotenv::dotenv;
@@ -16,15 +16,15 @@ pub mod functions {
     use uuid::Uuid;
 
     pub async fn tear_down() {
-        let connection = Connection::new().await.unwrap();
+        let connection = ContextManager::new().await.unwrap();
         sqlx::query("TRUNCATE community_board, community_comment, auth_account, auth_token_stat,service_outbox")
-            .execute(&connection.read().await.pool)
+            .execute(connection.read().await.pool)
             .await
             .unwrap();
     }
 
     pub async fn board_repository_helper(
-        connection: AtomicConnection,
+        connection: AtomicContextManager,
     ) -> Repository<BoardAggregate> {
         Repository::new(connection)
     }

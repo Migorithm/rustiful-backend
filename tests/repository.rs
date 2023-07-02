@@ -3,7 +3,7 @@ mod helpers;
 #[cfg(test)]
 mod repository_tests {
     use crate::helpers::functions::*;
-    use service_library::adapters::database::Connection;
+    use service_library::adapters::database::ContextManager;
     use service_library::adapters::repositories::{Repository, TRepository};
     use std::str::FromStr;
 
@@ -18,7 +18,7 @@ mod repository_tests {
     #[tokio::test]
     async fn test_add_board() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
+            let connection = ContextManager::new().await.unwrap();
             let mut board_repo = board_repository_helper(connection.clone()).await;
 
             '_transaction_block: {
@@ -38,7 +38,7 @@ mod repository_tests {
     #[tokio::test]
     async fn test_get_board() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
+            let connection = ContextManager::new().await.unwrap();
             let mut board_repo = board_repository_helper(connection.clone()).await;
             let id: String;
 
@@ -62,7 +62,7 @@ mod repository_tests {
     #[tokio::test]
     async fn test_get_board_with_different_state() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
+            let connection = ContextManager::new().await.unwrap();
             let mut board_repo = board_repository_helper(connection.clone()).await;
             let id: String;
 
@@ -88,7 +88,7 @@ mod repository_tests {
     #[tokio::test]
     async fn test_delete_board() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
+            let connection = ContextManager::new().await.unwrap();
             let mut board_repo: Repository<BoardAggregate> =
                 board_repository_helper(connection.clone()).await;
 
@@ -126,7 +126,7 @@ mod repository_tests {
     #[tokio::test]
     async fn test_update_board() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
+            let connection = ContextManager::new().await.unwrap();
             let mut board_repo: Repository<BoardAggregate> =
                 board_repository_helper(connection.clone()).await;
             //* values for comparison, fetch
@@ -180,7 +180,7 @@ mod repository_tests {
     #[tokio::test]
     async fn test_create_comment() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
+            let connection = ContextManager::new().await.unwrap();
             let mut board_repo: Repository<BoardAggregate> =
                 board_repository_helper(connection.clone()).await;
             //* values for comparison, fetch

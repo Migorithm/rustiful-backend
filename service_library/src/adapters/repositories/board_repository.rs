@@ -1,4 +1,4 @@
-use crate::adapters::database::AtomicConnection;
+use crate::adapters::database::AtomicContextManager;
 
 use crate::domain::board::entity::{Board, BoardState, Comment, CommentState};
 
@@ -18,7 +18,7 @@ use super::{Repository, TRepository};
 
 #[async_trait]
 impl TRepository<BoardAggregate> for Repository<BoardAggregate> {
-    fn new(connection: AtomicConnection) -> Self {
+    fn new(connection: AtomicContextManager) -> Self {
         Self {
             connection,
             _phantom: Default::default(),
@@ -32,7 +32,7 @@ impl TRepository<BoardAggregate> for Repository<BoardAggregate> {
         self.events = events
     }
 
-    fn connection(&self) -> &AtomicConnection {
+    fn connection(&self) -> &AtomicContextManager {
         &self.connection
     }
 
@@ -71,7 +71,7 @@ impl TRepository<BoardAggregate> for Repository<BoardAggregate> {
             "#,
             uuidfied
         )
-        .fetch_one(&self.connection.read().await.pool)
+        .fetch_one(self.connection.read().await.pool)
         .await
         .map_err(|err| {
             eprintln!("{}", err);
@@ -93,7 +93,7 @@ impl TRepository<BoardAggregate> for Repository<BoardAggregate> {
             "#,
             uuidfied,
         )
-        .fetch_all(&self.connection.read().await.pool)
+        .fetch_all(self.connection.read().await.pool)
         .await
         .map_err(|err| {
             eprintln!("{}", err);

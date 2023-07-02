@@ -14,7 +14,7 @@ mod test_outbox {
 
     use service_library::{
         adapters::{
-            database::{AtomicConnection, Connection},
+            database::{AtomicContextManager, ContextManager},
             outbox::Outbox,
             repositories::TRepository,
         },
@@ -22,7 +22,7 @@ mod test_outbox {
         services::unit_of_work::UnitOfWork,
     };
 
-    async fn outbox_setup(connection: AtomicConnection) {
+    async fn outbox_setup(connection: AtomicContextManager) {
         let cmd = CreateBoard {
             author: Uuid::new_v4(),
             title: "Title!".to_string(),
@@ -48,7 +48,7 @@ mod test_outbox {
     #[tokio::test]
     async fn test_create_board_leaves_outbox() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
+            let connection = ContextManager::new().await.unwrap();
             outbox_setup(connection.clone()).await;
 
             '_test_case: {
@@ -70,7 +70,7 @@ mod test_outbox {
     #[tokio::test]
     async fn test_convert_event() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
+            let connection = ContextManager::new().await.unwrap();
             outbox_setup(connection.clone()).await;
 
             '_test_case: {
@@ -97,7 +97,7 @@ mod test_outbox {
     #[tokio::test]
     async fn test_outbox_event_handled_by_messagebus() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
+            let connection = ContextManager::new().await.unwrap();
             outbox_setup(connection.clone()).await;
 
             '_test_case: {

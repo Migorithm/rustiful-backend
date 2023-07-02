@@ -1,5 +1,5 @@
 use crate::{
-    adapters::database::{AtomicConnection, Connection},
+    adapters::database::{AtomicContextManager, ContextManager},
     bootstrap::{CommandHandler, EventHandler},
     domain::{
         commands::{Command, ServiceResponse},
@@ -15,22 +15,22 @@ use std::sync::atomic::AtomicI32;
 pub struct MessageBus {
     #[cfg(test)]
     pub book_keeper: AtomicI32,
-    pub connection: AtomicConnection,
-    command_handler: &'static CommandHandler<AtomicConnection>,
-    event_handler: &'static EventHandler<AtomicConnection>,
+    pub connection: AtomicContextManager,
+    command_handler: &'static CommandHandler<AtomicContextManager>,
+    event_handler: &'static EventHandler<AtomicContextManager>,
 }
 
 impl MessageBus {
     pub async fn new(
-        command_handler: &'static CommandHandler<AtomicConnection>,
-        event_handler: &'static EventHandler<AtomicConnection>,
+        command_handler: &'static CommandHandler<AtomicContextManager>,
+        event_handler: &'static EventHandler<AtomicContextManager>,
     ) -> Arc<Self> {
         Self {
             #[cfg(test)]
             book_keeper: AtomicI32::new(0),
-            connection: Connection::new()
+            connection: ContextManager::new()
                 .await
-                .expect("Connection Creation Failed!"),
+                .expect("ContextManager Creation Failed!"),
             command_handler,
             event_handler,
         }
@@ -78,7 +78,7 @@ impl MessageBus {
     async fn handle_event(
         &self,
         msg: Box<dyn Message>,
-        conn: AtomicConnection,
+        conn: AtomicContextManager,
     ) -> ApplicationResult<()> {
         // ! msg.topic() returns the name of event. It is crucial that it corresponds to the key registered on Event Handler.
         for handler in self

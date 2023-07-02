@@ -6,7 +6,7 @@ pub mod service_tests {
 
     use crate::helpers::functions::*;
 
-    use service_library::adapters::database::Connection;
+    use service_library::adapters::database::ContextManager;
     use service_library::adapters::repositories::{Repository, TRepository};
 
     use service_library::domain::board::commands::{AddComment, CreateBoard, EditBoard};
@@ -20,7 +20,7 @@ pub mod service_tests {
     #[tokio::test]
     async fn test_create_board() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
+            let connection = ContextManager::new().await.unwrap();
 
             let cmd = CreateBoard {
                 author: Uuid::new_v4(),
@@ -49,7 +49,7 @@ pub mod service_tests {
     #[tokio::test]
     async fn test_edit_board() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
+            let connection = ContextManager::new().await.unwrap();
 
             let id: String;
             let uow =
@@ -96,7 +96,7 @@ pub mod service_tests {
     #[tokio::test]
     async fn test_add_comment() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
+            let connection = ContextManager::new().await.unwrap();
 
             let id: String;
             let uow =

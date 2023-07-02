@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use crate::adapters::repositories::TRepository;
 use crate::domain::{Aggregate, Message};
 use crate::{
-    adapters::{database::AtomicConnection, outbox::Outbox},
+    adapters::{database::AtomicContextManager, outbox::Outbox},
     utils::ApplicationResult,
 };
 
@@ -13,7 +13,7 @@ where
     R: TRepository<A>,
     A: Aggregate + 'static,
 {
-    pub connection: AtomicConnection,
+    pub connection: AtomicContextManager,
     // pub boards: Repository<BoardAggregate>,
     // pub auths: Repository<AuthAggregate>,
     pub repository: R,
@@ -25,7 +25,7 @@ where
     R: TRepository<A>,
     A: Aggregate,
 {
-    pub fn new(connection: AtomicConnection) -> Self {
+    pub fn new(connection: AtomicContextManager) -> Self {
         Self {
             connection: connection.clone(),
             repository: R::new(connection),
@@ -52,7 +52,7 @@ where
         self.connection.write().await.rollback().await?;
         Ok(())
     }
-    pub async fn _save_outboxes(&self, connection: AtomicConnection) -> ApplicationResult<()> {
+    pub async fn _save_outboxes(&self, connection: AtomicContextManager) -> ApplicationResult<()> {
         Outbox::add(
             connection,
             self.repository._collect_outbox().collect::<Vec<_>>(),
@@ -79,7 +79,7 @@ mod test_unit_of_work {
 
     use uuid::Uuid;
 
-    use crate::adapters::database::Connection;
+    use crate::adapters::database::ContextManager;
 
     use crate::adapters::repositories::{Repository, TRepository};
     use crate::domain::board::commands::CreateBoard;
@@ -94,7 +94,7 @@ mod test_unit_of_work {
     #[tokio::test]
     async fn test_unit_of_work() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
+            let connection = ContextManager::new().await.unwrap();
 
             '_transaction_block: {
                 let builder = BoardAggregate::builder();
@@ -158,7 +158,7 @@ mod test_unit_of_work {
     #[tokio::test]
     async fn test_unit_of_work_event_collection() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
+            let connection = ContextManager::new().await.unwrap();
 
             '_transaction_block: {
                 let builder = BoardAggregate::builder();

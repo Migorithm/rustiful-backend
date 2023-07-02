@@ -7,7 +7,7 @@ use crate::{
     utils::{ApplicationError, ApplicationResult},
 };
 
-use super::database::AtomicConnection;
+use super::database::AtomicContextManager;
 
 #[derive(Debug, Clone)]
 pub struct Outbox {
@@ -50,7 +50,10 @@ impl Outbox {
         self.processed = true
     }
 
-    pub async fn add(connection: AtomicConnection, outboxes: Vec<Self>) -> ApplicationResult<()> {
+    pub async fn add(
+        connection: AtomicContextManager,
+        outboxes: Vec<Self>,
+    ) -> ApplicationResult<()> {
         for ob in outboxes {
             sqlx::query_as!(
                 Self,
@@ -71,20 +74,20 @@ impl Outbox {
         }
         Ok(())
     }
-    pub async fn get(connection: AtomicConnection) -> ApplicationResult<Vec<Self>> {
+    pub async fn get(connection: AtomicContextManager) -> ApplicationResult<Vec<Self>> {
         sqlx::query_as!(
             Self,
             r#"SELECT * FROM service_outbox WHERE processed = $1"#,
             false
         )
-        .fetch_all(&connection.read().await.pool)
+        .fetch_all(connection.read().await.pool)
         .await
         .map_err(|err| {
             eprintln!("{}", err);
             ApplicationError::DatabaseConnectionError(Box::new(err))
         })
     }
-    pub async fn update(&self, connection: &mut AtomicConnection) -> ApplicationResult<()> {
+    pub async fn update(&self, connection: &mut AtomicContextManager) -> ApplicationResult<()> {
         sqlx::query_as!(
             Self,
             r#" 

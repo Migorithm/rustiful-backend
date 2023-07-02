@@ -8,7 +8,10 @@ use std::{
 };
 
 use crate::{
-    adapters::{database::AtomicConnection, outbox::Outbox},
+    adapters::{
+        database::{AtomicContextManager, ContextManager},
+        outbox::Outbox,
+    },
     domain::{
         board::{commands::*, events::BoardCreated},
         commands::ServiceResponse,
@@ -32,6 +35,9 @@ impl Boostrap {
 pub struct Dependency;
 
 impl Dependency {
+    async fn context_manager() -> AtomicContextManager {
+        ContextManager::new().await.unwrap()
+    }
     fn some_dependency(_arg1: String, _arg2: i32) -> ServiceResponse {
         ServiceResponse::Empty(())
     }
@@ -44,7 +50,7 @@ pub type CommandHandler<T> = HashMap<
     Box<dyn Fn(Box<dyn Any + Send + Sync>, T) -> Future<ServiceResponse> + Send + Sync>,
 >;
 
-macro_rules! command_handler {
+macro_rules! init_command_handler {
     (
         [$connectable_ident:ident, $connectable:ty] ; {$($command:ty:$handler:expr $(=>($($injectable:ident),*))? ),* }
     )
@@ -60,7 +66,10 @@ macro_rules! command_handler {
                         |c:Box<dyn Any+Send+Sync>, $connectable_ident: $connectable |->Future<ServiceResponse>{
                             // * Convert event so event handler accepts not Box<dyn Message> but `event_happend` type of message.
                             // ! Logically, as it's from TypId of command, it doesn't make to cause an error.
-                            $handler(*c.downcast::<$command>().unwrap(),$connectable_ident,
+
+                            $handler(
+                                *c.downcast::<$command>().unwrap(),
+                                $connectable_ident,
                             $(
                                 // * Injectable functions are added here.
                                 $(Box::new(Dependency::$injectable),)*
@@ -74,7 +83,7 @@ macro_rules! command_handler {
         }
     };
 }
-macro_rules! event_handler {
+macro_rules! init_event_handler {
     (
         [$connectable_ident:ident, $connectable:ty] ; {$($event:ty: [$($handler:expr $(=>($($injectable:ident),*))? ),* ]),*}
     ) =>{
@@ -111,8 +120,8 @@ macro_rules! event_handler {
 // * Among dependencies, `Connectable` dependencies shouldn't be injected sometimes because
 // * its state is usually globally managed as in conneciton pool in RDBMS.
 // * Therefore, it's adviable to specify connectables seperately.
-command_handler!(
-    [conn, AtomicConnection];
+init_command_handler!(
+    [conn, AtomicContextManager];
     {
         CreateBoard: ServiceHandler::create_board,
         EditBoard: ServiceHandler::edit_board,
@@ -122,8 +131,8 @@ command_handler!(
     }
 );
 
-event_handler!(
-    [conn,AtomicConnection];
+init_event_handler!(
+    [conn,AtomicContextManager];
     {
         BoardCreated : [
             handlers::EventHandler::test_event_handler=>(some_dependency),
@@ -132,8 +141,9 @@ event_handler!(
     }
 );
 
-pub fn command_handler() -> &'static CommandHandler<AtomicConnection> {
-    static PTR: AtomicPtr<CommandHandler<AtomicConnection>> = AtomicPtr::new(std::ptr::null_mut());
+pub fn command_handler() -> &'static CommandHandler<AtomicContextManager> {
+    static PTR: AtomicPtr<CommandHandler<AtomicContextManager>> =
+        AtomicPtr::new(std::ptr::null_mut());
     let mut p = PTR.load(Acquire);
 
     if p.is_null() {
@@ -149,8 +159,9 @@ pub fn command_handler() -> &'static CommandHandler<AtomicConnection> {
     unsafe { &*p }
 }
 
-pub fn event_handler() -> &'static EventHandler<AtomicConnection> {
-    static PTR: AtomicPtr<EventHandler<AtomicConnection>> = AtomicPtr::new(std::ptr::null_mut());
+pub fn event_handler() -> &'static EventHandler<AtomicContextManager> {
+    static PTR: AtomicPtr<EventHandler<AtomicContextManager>> =
+        AtomicPtr::new(std::ptr::null_mut());
     let mut p = PTR.load(Acquire);
 
     if p.is_null() {

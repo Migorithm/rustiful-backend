@@ -6,7 +6,7 @@ pub mod database_tests {
     use crate::helpers::functions::*;
     use service_library::{
         adapters::{
-            database::Connection,
+            database::ContextManager,
             repositories::{Repository, TRepository},
         },
         domain::board::{entity::BoardState, BoardAggregate},
@@ -15,10 +15,10 @@ pub mod database_tests {
     #[tokio::test]
     async fn test_connection() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
+            let connection = ContextManager::new().await.unwrap();
 
             match sqlx::query("SELECT 1")
-                .execute(&connection.read().await.pool)
+                .execute(connection.read().await.pool)
                 .await
             {
                 Ok(_val) => (),
@@ -31,7 +31,7 @@ pub mod database_tests {
     #[tokio::test]
     async fn test_transaction_commit() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
+            let connection = ContextManager::new().await.unwrap();
             // TODO test under same connection.
             connection.write().await.begin().await.unwrap();
             // let trx: Transactions = connection.begin().await.unwrap();
@@ -53,7 +53,7 @@ pub mod database_tests {
     #[tokio::test]
     async fn test_transaction_rollback() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
+            let connection = ContextManager::new().await.unwrap();
 
             connection.write().await.begin().await.unwrap();
 
