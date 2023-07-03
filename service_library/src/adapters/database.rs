@@ -34,8 +34,8 @@ impl ContextManager {
 
 #[derive(Debug)]
 pub struct Executor {
-    pub(crate) pool: &'static PgPool,
-    pub(crate) transaction: Option<Transaction<'static, Postgres>>,
+    pool: &'static PgPool,
+    transaction: Option<Transaction<'static, Postgres>>,
 }
 
 impl Executor {

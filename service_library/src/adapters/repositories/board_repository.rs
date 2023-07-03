@@ -69,7 +69,7 @@ impl TRepository<BoardAggregate> for Repository<BoardAggregate> {
             "#,
             uuidfied
         )
-        .fetch_one(self.executor.read().await.pool)
+        .fetch_one(self.executor.read().await.connection())
         .await
         .map_err(|err| {
             eprintln!("{}", err);
@@ -91,7 +91,7 @@ impl TRepository<BoardAggregate> for Repository<BoardAggregate> {
             "#,
             uuidfied,
         )
-        .fetch_all(self.executor.read().await.pool)
+        .fetch_all(self.executor.read().await.connection())
         .await
         .map_err(|err| {
             eprintln!("{}", err);

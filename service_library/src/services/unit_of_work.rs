@@ -15,10 +15,10 @@ where
     R: TRepository<A>,
     A: Aggregate + 'static,
 {
-    pub executor: Arc<RwLock<Executor>>,
-    pub context: AtomicContextManager,
+    executor: Arc<RwLock<Executor>>,
+    context: AtomicContextManager,
     pub repository: R,
-    pub _aggregate: PhantomData<A>,
+    _aggregate: PhantomData<A>,
 }
 
 impl<R, A> UnitOfWork<R, A>
@@ -42,6 +42,10 @@ where
 
         executor.begin().await?;
         Ok(())
+    }
+
+    pub fn executor(&self) -> Arc<RwLock<Executor>> {
+        self.executor.clone()
     }
 
     pub async fn commit(mut self) -> ApplicationResult<()> {
