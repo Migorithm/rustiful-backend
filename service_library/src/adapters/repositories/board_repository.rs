@@ -1,4 +1,4 @@
-use crate::adapters::database::AtomicConnection;
+use crate::adapters::database::Executor;
 
 use crate::domain::board::entity::{Board, BoardState, Comment, CommentState};
 
@@ -7,10 +7,12 @@ use crate::domain::{builder::*, Message};
 
 use crate::utils::ApplicationError;
 use async_trait::async_trait;
+use tokio::sync::RwLock;
 
 use std::collections::VecDeque;
 
 use std::str::FromStr;
+use std::sync::Arc;
 
 use uuid::Uuid;
 
@@ -18,9 +20,9 @@ use super::{Repository, TRepository};
 
 #[async_trait]
 impl TRepository<BoardAggregate> for Repository<BoardAggregate> {
-    fn new(connection: AtomicConnection) -> Self {
+    fn new(executor: Arc<RwLock<Executor>>) -> Self {
         Self {
-            connection,
+            executor,
             _phantom: Default::default(),
             events: Default::default(),
         }
@@ -30,10 +32,6 @@ impl TRepository<BoardAggregate> for Repository<BoardAggregate> {
     }
     fn set_events(&mut self, events: VecDeque<Box<dyn Message>>) {
         self.events = events
-    }
-
-    fn connection(&self) -> &AtomicConnection {
-        &self.connection
     }
 
     async fn _add(&mut self, aggregate: &BoardAggregate) -> Result<String, ApplicationError> {
@@ -47,7 +45,7 @@ impl TRepository<BoardAggregate> for Repository<BoardAggregate> {
             &board.title,
             &board.content,
             board.state.clone() as BoardState,
-        ).execute(self.connection.write().await.connection()).await.map_err(|err| ApplicationError::DatabaseConnectionError(Box::new(err)))?;
+        ).execute(self.executor.write().await.transaction()).await.map_err(|err| ApplicationError::DatabaseConnectionError(Box::new(err)))?;
 
         Ok(board.id.to_string())
     }
@@ -71,7 +69,7 @@ impl TRepository<BoardAggregate> for Repository<BoardAggregate> {
             "#,
             uuidfied
         )
-        .fetch_one(&self.connection.read().await.pool)
+        .fetch_one(self.executor.read().await.pool)
         .await
         .map_err(|err| {
             eprintln!("{}", err);
@@ -93,7 +91,7 @@ impl TRepository<BoardAggregate> for Repository<BoardAggregate> {
             "#,
             uuidfied,
         )
-        .fetch_all(&self.connection.read().await.pool)
+        .fetch_all(self.executor.read().await.pool)
         .await
         .map_err(|err| {
             eprintln!("{}", err);
@@ -144,7 +142,7 @@ impl TRepository<BoardAggregate> for Repository<BoardAggregate> {
             board.id,
             board.version
         )
-        .execute(self.connection.write().await.connection())
+        .execute(self.executor.write().await.transaction())
         .await
         .map_err(|err| ApplicationError::DatabaseConnectionError(Box::new(err)))?;
 
@@ -168,7 +166,7 @@ impl TRepository<BoardAggregate> for Repository<BoardAggregate> {
                 CommentState::Created as CommentState,
                 comment.create_dt
             )
-            .execute(self.connection.write().await.connection())
+            .execute(self.executor.write().await.transaction())
             .await
             .map_err(|err| ApplicationError::DatabaseConnectionError(Box::new(err)))?;
         }
@@ -182,7 +180,7 @@ impl TRepository<BoardAggregate> for Repository<BoardAggregate> {
                 comment.content,
                 comment.id
             )
-            .execute(self.connection.write().await.connection())
+            .execute(self.executor.write().await.transaction())
             .await
             .map_err(|err| ApplicationError::DatabaseConnectionError(Box::new(err)))?;
         }

@@ -10,11 +10,12 @@ mod test_outbox {
     use service_library::domain::board::events::BoardCreated;
     use service_library::domain::board::BoardAggregate;
     use service_library::services::handlers::ServiceHandler;
+
     use uuid::Uuid;
 
     use service_library::{
         adapters::{
-            database::{AtomicConnection, Connection},
+            database::{AtomicContextManager, ContextManager},
             outbox::Outbox,
             repositories::TRepository,
         },
@@ -22,22 +23,25 @@ mod test_outbox {
         services::unit_of_work::UnitOfWork,
     };
 
-    async fn outbox_setup(connection: AtomicConnection) {
+    async fn outbox_setup(connection: AtomicContextManager) {
         let cmd = CreateBoard {
             author: Uuid::new_v4(),
             title: "Title!".to_string(),
             content: "Content".to_string(),
             state: BoardState::Published,
         };
+        let context_manager = ContextManager::new().await;
 
-        let uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(connection.clone());
-        match ServiceHandler::create_board(cmd, connection.clone()).await {
+        match ServiceHandler::create_board(cmd, context_manager.clone()).await {
             Err(err) => '_fail_case: {
                 panic!("Service Handling Failed! {}", err)
             }
             Ok(response) => '_test: {
                 let id: String = response.try_into().unwrap();
-
+                let uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                    context_manager.clone(),
+                )
+                .await;
                 if let Err(err) = uow.repository.get(&id).await {
                     panic!("Fetching newly created object failed! : {}", err);
                 };
@@ -48,11 +52,11 @@ mod test_outbox {
     #[tokio::test]
     async fn test_create_board_leaves_outbox() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
-            outbox_setup(connection.clone()).await;
+            let context_manager = ContextManager::new().await;
+            outbox_setup(context_manager.clone()).await;
 
             '_test_case: {
-                match Outbox::get(connection.clone()).await {
+                match Outbox::get(context_manager.read().await.executor()).await {
                     Err(err) => {
                         eprintln!("{}", err);
                         panic!("Test Failed! Outbox Not Stored!")
@@ -61,7 +65,7 @@ mod test_outbox {
                         println!("{:?}", val);
                         println!("Outbox stored successfully!")
                     }
-                }
+                };
             }
         })
         .await
@@ -70,11 +74,13 @@ mod test_outbox {
     #[tokio::test]
     async fn test_convert_event() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
-            outbox_setup(connection.clone()).await;
+            let context_manager = ContextManager::new().await;
+            outbox_setup(context_manager.clone()).await;
 
             '_test_case: {
-                let vec_of_outbox = Outbox::get(connection.clone()).await.unwrap();
+                let vec_of_outbox = Outbox::get(context_manager.read().await.executor())
+                    .await
+                    .unwrap();
 
                 assert_eq!(vec_of_outbox.len(), 1);
                 let event = vec_of_outbox.get(0).unwrap().convert_event();
@@ -97,13 +103,16 @@ mod test_outbox {
     #[tokio::test]
     async fn test_outbox_event_handled_by_messagebus() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
-            outbox_setup(connection.clone()).await;
+            let context_manager = ContextManager::new().await;
+            outbox_setup(context_manager.clone()).await;
 
             '_test_case: {
                 let bus = Boostrap::message_bus().await;
 
-                for e in Outbox::get(connection.clone()).await.unwrap() {
+                for e in Outbox::get(context_manager.read().await.executor())
+                    .await
+                    .unwrap()
+                {
                     //TODO Messagebus for outbox?
                     match bus.handle(e).await {
                         Ok(_var) => {
@@ -113,7 +122,9 @@ mod test_outbox {
                     }
                 }
 
-                let boxes = Outbox::get(connection.clone()).await.unwrap();
+                let boxes = Outbox::get(context_manager.read().await.executor())
+                    .await
+                    .unwrap();
                 assert!(boxes.is_empty());
             }
         })

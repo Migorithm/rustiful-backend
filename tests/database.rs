@@ -3,24 +3,24 @@ pub mod helpers;
 #[cfg(test)]
 pub mod database_tests {
 
+    use std::sync::Arc;
+
     use crate::helpers::functions::*;
     use service_library::{
         adapters::{
-            database::Connection,
+            database::{connection_pool, Executor},
             repositories::{Repository, TRepository},
         },
         domain::board::{entity::BoardState, BoardAggregate},
     };
+    use tokio::sync::RwLock;
 
     #[tokio::test]
     async fn test_connection() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
+            let pool = connection_pool().await;
 
-            match sqlx::query("SELECT 1")
-                .execute(&connection.read().await.pool)
-                .await
-            {
+            match sqlx::query("SELECT 1").execute(pool).await {
                 Ok(_val) => (),
                 Err(_e) => panic!("Test Fail!"),
             };
@@ -31,17 +31,21 @@ pub mod database_tests {
     #[tokio::test]
     async fn test_transaction_commit() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
-            // TODO test under same connection.
-            connection.write().await.begin().await.unwrap();
-            // let trx: Transactions = connection.begin().await.unwrap();
+            let pool = connection_pool().await;
+            let executor = Arc::new(RwLock::new(Executor::new(pool)));
+            // let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+            //     connection.read().await.executor(),
+            // );
+
+            executor.write().await.begin().await.unwrap();
+
             let mut board_repo: Repository<BoardAggregate> =
-                board_repository_helper(connection.clone()).await;
+                board_repository_helper(executor.clone());
 
             let mut board_aggregate = board_create_helper(BoardState::Unpublished);
             let id = board_repo.add(&mut board_aggregate).await.unwrap();
 
-            connection.write().await.commit().await.unwrap();
+            executor.write().await.commit().await.unwrap();
 
             //TODO Should exist
 
@@ -53,18 +57,18 @@ pub mod database_tests {
     #[tokio::test]
     async fn test_transaction_rollback() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
+            let pool = connection_pool().await;
+            let executor = Arc::new(RwLock::new(Executor::new(pool)));
 
-            connection.write().await.begin().await.unwrap();
-
-            // TODO test under same connection.
-
-            let mut board_repo = board_repository_helper(connection.clone()).await;
+            executor.write().await.begin().await.unwrap();
+            // let trx: Transactions = connection.begin().await.unwrap();
+            let mut board_repo: Repository<BoardAggregate> =
+                board_repository_helper(executor.clone());
 
             let mut board_aggregate = board_create_helper(BoardState::Unpublished);
             let id = board_repo.add(&mut board_aggregate).await.unwrap();
 
-            connection.write().await.rollback().await.unwrap();
+            executor.write().await.rollback().await.unwrap();
 
             //TODO Shouldn't exist
             if board_repo.get(&id).await.is_ok() {

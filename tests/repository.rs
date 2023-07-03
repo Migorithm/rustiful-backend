@@ -3,8 +3,9 @@ mod helpers;
 #[cfg(test)]
 mod repository_tests {
     use crate::helpers::functions::*;
-    use service_library::adapters::database::Connection;
-    use service_library::adapters::repositories::{Repository, TRepository};
+    use service_library::adapters::database::ContextManager;
+    use service_library::adapters::repositories::TRepository;
+
     use std::str::FromStr;
 
     use service_library::domain::board::commands::EditBoard;
@@ -18,18 +19,21 @@ mod repository_tests {
     #[tokio::test]
     async fn test_add_board() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
-            let mut board_repo = board_repository_helper(connection.clone()).await;
+            let context_manager = ContextManager::new().await;
+
+            let executor = context_manager.read().await.executor();
 
             '_transaction_block: {
-                connection.write().await.begin().await.unwrap();
+                executor.write().await.begin().await.unwrap();
+
+                let mut board_repo = board_repository_helper(executor.clone());
 
                 let mut board_aggregate = board_create_helper(BoardState::Unpublished);
 
                 let id = board_repo.add(&mut board_aggregate).await.unwrap();
                 assert_eq!(board_aggregate.board.id.to_string(), id);
 
-                connection.write().await.commit().await.unwrap();
+                executor.write().await.commit().await.unwrap();
             }
         })
         .await;
@@ -38,17 +42,19 @@ mod repository_tests {
     #[tokio::test]
     async fn test_get_board() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
-            let mut board_repo = board_repository_helper(connection.clone()).await;
+            let context_manager = ContextManager::new().await;
+            let executor = context_manager.read().await.executor();
+
+            let mut board_repo = board_repository_helper(executor.clone());
             let id: String;
 
             '_tranasction_block: {
-                connection.write().await.begin().await.unwrap();
+                executor.write().await.begin().await.unwrap();
 
                 let mut board_aggregate = board_create_helper(BoardState::Unpublished);
 
                 id = board_repo.add(&mut board_aggregate).await.unwrap();
-                connection.write().await.commit().await.unwrap();
+                executor.write().await.commit().await.unwrap();
             }
 
             '_test_block: {
@@ -62,18 +68,19 @@ mod repository_tests {
     #[tokio::test]
     async fn test_get_board_with_different_state() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
-            let mut board_repo = board_repository_helper(connection.clone()).await;
+            let context_manager = ContextManager::new().await;
+            let executor = context_manager.read().await.executor();
+
+            let mut board_repo = board_repository_helper(executor.clone());
             let id: String;
 
             '_transaction_block: {
-                connection.write().await.begin().await.unwrap();
+                executor.write().await.begin().await.unwrap();
 
                 let mut board_aggregate = board_create_helper(BoardState::Published);
 
                 id = board_repo.add(&mut board_aggregate).await.unwrap();
-
-                connection.write().await.commit().await.unwrap();
+                executor.write().await.commit().await.unwrap();
             }
 
             '_test_block: {
@@ -88,22 +95,23 @@ mod repository_tests {
     #[tokio::test]
     async fn test_delete_board() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
-            let mut board_repo: Repository<BoardAggregate> =
-                board_repository_helper(connection.clone()).await;
+            let context_manager = ContextManager::new().await;
+            let executor = context_manager.read().await.executor();
 
+            let mut board_repo = board_repository_helper(executor.clone());
             let id: String;
+
             '_transaction_block: {
-                connection.write().await.begin().await.unwrap();
+                executor.write().await.begin().await.unwrap();
 
                 let mut board_aggregate = board_create_helper(BoardState::Unpublished);
                 assert_eq!(board_aggregate.board.state(), "Unpublished");
                 id = board_repo.add(&mut board_aggregate).await.unwrap();
-                connection.write().await.commit().await.unwrap();
+                executor.write().await.commit().await.unwrap();
             }
 
             '_transaction_block2: {
-                connection.write().await.begin().await.unwrap();
+                executor.write().await.begin().await.unwrap();
                 let mut board_aggregate = board_repo.get(&id).await.unwrap();
                 board_aggregate.update_board(EditBoard {
                     id: Uuid::from_str(&id).unwrap(),
@@ -113,7 +121,7 @@ mod repository_tests {
                 });
 
                 board_repo.update(&mut board_aggregate).await.unwrap();
-                connection.write().await.commit().await.unwrap();
+                executor.write().await.commit().await.unwrap();
             }
             '_test_block3: {
                 let board_aggregate = board_repo.get(&id).await.unwrap();
@@ -126,26 +134,26 @@ mod repository_tests {
     #[tokio::test]
     async fn test_update_board() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
-            let mut board_repo: Repository<BoardAggregate> =
-                board_repository_helper(connection.clone()).await;
-            //* values for comparison, fetch
+            let context_manager = ContextManager::new().await;
+            let executor = context_manager.read().await.executor();
+            let mut board_repo = board_repository_helper(executor.clone());
             let id: String;
+
             let existing_content: String;
 
             '_transaction_block: {
-                connection.write().await.begin().await.unwrap();
+                executor.write().await.begin().await.unwrap();
 
                 let mut board_aggregate = board_create_helper(BoardState::Unpublished);
                 existing_content = board_aggregate.board.content.clone();
 
                 id = board_repo.add(&mut board_aggregate).await.unwrap();
 
-                connection.write().await.commit().await.unwrap();
+                executor.write().await.commit().await.unwrap();
             }
 
             '_transaction_block2: {
-                connection.write().await.begin().await.unwrap();
+                executor.write().await.begin().await.unwrap();
 
                 let mut initial_board_aggregate = board_repo.get(&id).await.unwrap();
                 let initial_board = &mut initial_board_aggregate.board;
@@ -162,7 +170,7 @@ mod repository_tests {
                     .await
                     .unwrap();
 
-                connection.write().await.commit().await.unwrap();
+                executor.write().await.commit().await.unwrap();
 
                 '_test_block: {
                     let board_aggregate = board_repo.get(&id).await.unwrap();
@@ -180,18 +188,17 @@ mod repository_tests {
     #[tokio::test]
     async fn test_create_comment() {
         run_test(async {
-            let connection = Connection::new().await.unwrap();
-            let mut board_repo: Repository<BoardAggregate> =
-                board_repository_helper(connection.clone()).await;
-            //* values for comparison, fetch
-            let id: String;
+            let context_manager = ContextManager::new().await;
+            let executor = context_manager.read().await.executor();
+            let mut board_repo = board_repository_helper(executor.clone());
             let mut board_aggregate: BoardAggregate;
+            let id: String;
 
             '_tranasction_block: {
-                connection.write().await.begin().await.unwrap();
+                executor.write().await.begin().await.unwrap();
                 board_aggregate = board_create_helper(BoardState::Unpublished);
                 id = board_repo.add(&mut board_aggregate).await.unwrap();
-                connection.write().await.commit().await.unwrap();
+                executor.write().await.commit().await.unwrap();
             }
 
             '_transaction_block2: {
@@ -202,9 +209,9 @@ mod repository_tests {
                     .take_board(board_aggregate.board)
                     .take_comments(vec![comment]);
 
-                connection.write().await.begin().await.unwrap();
+                executor.write().await.begin().await.unwrap();
                 board_repo.update(&mut board_builder.build()).await.unwrap();
-                connection.write().await.commit().await.unwrap();
+                executor.write().await.commit().await.unwrap();
             }
 
             '_test_block: {

@@ -1,18 +1,21 @@
 use std::collections::VecDeque;
+use std::sync::Arc;
 
-use crate::{adapters::database::AtomicConnection, domain::Message};
+use crate::adapters::database::Executor;
+use crate::domain::Message;
 
 use crate::domain::auth::AuthAggregate;
 
 use super::{Repository, TRepository};
 use crate::utils::ApplicationError;
 use async_trait::async_trait;
+use tokio::sync::RwLock;
 
 #[async_trait]
 impl TRepository<AuthAggregate> for Repository<AuthAggregate> {
-    fn new(connection: AtomicConnection) -> Self {
+    fn new(executor: Arc<RwLock<Executor>>) -> Self {
         Self {
-            connection,
+            executor,
             _phantom: Default::default(),
             events: Default::default(),
         }
@@ -34,9 +37,5 @@ impl TRepository<AuthAggregate> for Repository<AuthAggregate> {
 
     async fn _update(&mut self, _aggregate: &AuthAggregate) -> Result<(), ApplicationError> {
         unimplemented!()
-    }
-
-    fn connection(&self) -> &AtomicConnection {
-        &self.connection
     }
 }
