@@ -21,7 +21,7 @@ pub mod service_tests {
     #[tokio::test]
     async fn test_create_board() {
         run_test(async {
-            let context_manager = ContextManager::new().await;
+            let (context_manager, _recv) = ContextManager::new().await;
 
             let cmd = CreateBoard {
                 author: Uuid::new_v4(),
@@ -52,7 +52,7 @@ pub mod service_tests {
     #[tokio::test]
     async fn test_edit_board() {
         run_test(async {
-            let context_manager = ContextManager::new().await;
+            let (context_manager, _recv) = ContextManager::new().await;
 
             let id: String;
 
@@ -105,7 +105,7 @@ pub mod service_tests {
     #[tokio::test]
     async fn test_add_comment() {
         run_test(async {
-            let context_manager = ContextManager::new().await;
+            let (context_manager, _recv) = ContextManager::new().await;
             let id: String;
 
             '_preparation_block: {

@@ -19,7 +19,7 @@ mod repository_tests {
     #[tokio::test]
     async fn test_add_board() {
         run_test(async {
-            let context_manager = ContextManager::new().await;
+            let (context_manager, _) = ContextManager::new().await;
 
             let executor = context_manager.read().await.executor();
 
@@ -42,7 +42,7 @@ mod repository_tests {
     #[tokio::test]
     async fn test_get_board() {
         run_test(async {
-            let context_manager = ContextManager::new().await;
+            let (context_manager, _) = ContextManager::new().await;
             let executor = context_manager.read().await.executor();
 
             let mut board_repo = board_repository_helper(executor.clone());
@@ -68,7 +68,7 @@ mod repository_tests {
     #[tokio::test]
     async fn test_get_board_with_different_state() {
         run_test(async {
-            let context_manager = ContextManager::new().await;
+            let (context_manager, _) = ContextManager::new().await;
             let executor = context_manager.read().await.executor();
 
             let mut board_repo = board_repository_helper(executor.clone());
@@ -95,7 +95,7 @@ mod repository_tests {
     #[tokio::test]
     async fn test_delete_board() {
         run_test(async {
-            let context_manager = ContextManager::new().await;
+            let (context_manager, _) = ContextManager::new().await;
             let executor = context_manager.read().await.executor();
 
             let mut board_repo = board_repository_helper(executor.clone());
@@ -134,7 +134,7 @@ mod repository_tests {
     #[tokio::test]
     async fn test_update_board() {
         run_test(async {
-            let context_manager = ContextManager::new().await;
+            let (context_manager, _) = ContextManager::new().await;
             let executor = context_manager.read().await.executor();
             let mut board_repo = board_repository_helper(executor.clone());
             let id: String;
@@ -188,7 +188,7 @@ mod repository_tests {
     #[tokio::test]
     async fn test_create_comment() {
         run_test(async {
-            let context_manager = ContextManager::new().await;
+            let (context_manager, _) = ContextManager::new().await;
             let executor = context_manager.read().await.executor();
             let mut board_repo = board_repository_helper(executor.clone());
             let mut board_aggregate: BoardAggregate;
