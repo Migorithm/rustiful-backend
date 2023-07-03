@@ -25,8 +25,10 @@ mod test_outbox {
             title: "Title!".to_string(),
             content: "Content".to_string(),
             state: BoardState::Published,
-        };
-        let context_manager = ContextManager::new().await;
+        }; 
+
+        // ! The Following receiver must exist 
+        let (context_manager,mut _receiver) = ContextManager::new().await;
 
         match ServiceHandler::create_board(cmd, context_manager.clone()).await {
             Err(err) => '_fail_case: {
@@ -48,7 +50,7 @@ mod test_outbox {
     #[tokio::test]
     async fn test_create_board_leaves_outbox() {
         run_test(async {
-            let context_manager = ContextManager::new().await;
+            let (context_manager, _) = ContextManager::new().await;
             outbox_setup().await;
 
             '_test_case: {
@@ -70,7 +72,7 @@ mod test_outbox {
     #[tokio::test]
     async fn test_convert_event() {
         run_test(async {
-            let context_manager = ContextManager::new().await;
+            let (context_manager, _) = ContextManager::new().await;
             outbox_setup().await;
 
             '_test_case: {
@@ -96,15 +98,16 @@ mod test_outbox {
         .await
     }
 
-    #[tokio::test]
+    #[tokio::main]
+    #[test]
     async fn test_outbox_event_handled_by_messagebus() {
         run_test(async {
-            let context_manager = ContextManager::new().await;
+            let (context_manager, _) = ContextManager::new().await;
             outbox_setup().await;
 
             '_test_case: {
                 let bus = Boostrap::message_bus().await;
-
+                println!("he");
                 for e in Outbox::get(context_manager.read().await.executor())
                     .await
                     .unwrap()

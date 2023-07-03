@@ -71,12 +71,14 @@ where
         Ok(())
     }
     pub async fn _collect_events(&mut self) {
-        let local_events = &mut self.context.write().await.events;
+        let event_sender = &mut self.context.write().await.sender;
 
-        self.repository
-            .get_events()
-            .iter()
-            .for_each(|e| local_events.push_back(e.message_clone()));
+        for e in self.repository.get_events().iter() {
+            event_sender
+                .send(e.message_clone())
+                .await
+                .expect("Event Collecting failed!")
+        }
     }
 }
 
@@ -102,7 +104,7 @@ mod test_unit_of_work {
     #[tokio::test]
     async fn test_unit_of_work() {
         run_test(async {
-            let ctx_manager = ContextManager::new().await;
+            let (ctx_manager, _) = ContextManager::new().await;
 
             '_transaction_block: {
                 let builder = BoardAggregate::builder();
@@ -172,7 +174,7 @@ mod test_unit_of_work {
     async fn test_unit_of_work_event_collection() {
         run_test(async {
             // TODO Subject to deletion
-            let ctx_manager = ContextManager::new().await;
+            let (ctx_manager, mut receiver) = ContextManager::new().await;
 
             '_transaction_block: {
                 let builder = BoardAggregate::builder();
@@ -204,7 +206,15 @@ mod test_unit_of_work {
                     if let Err(err) = uow.repository.get(&id).await {
                         panic!("Fetch Error!:{}", err)
                     };
-                    assert_eq!(ctx_manager.read().await.events.len(), 1);
+                    let mut count = 0;
+                    'loo: loop {
+                        match receiver.try_recv() {
+                            Ok(_) => count += 1,
+                            Err(_err) => break 'loo,
+                        }
+                    }
+
+                    assert_eq!(count, 1);
                 }
             }
         })

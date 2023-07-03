@@ -1,13 +1,14 @@
 use crate::bootstrap::connection_pool;
 use crate::utils::ApplicationError;
 use crate::{domain::Message, utils::ApplicationResult};
-use std::collections::VecDeque;
+
 
 use std::{mem, sync::Arc};
 
 use sqlx::{postgres::PgPool, Postgres, Transaction};
 
-use tokio::sync::RwLock;
+use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::{mpsc::channel, RwLock};
 
 pub type AtomicContextManager = Arc<RwLock<ContextManager>>;
 
@@ -16,24 +17,22 @@ pub type AtomicContextManager = Arc<RwLock<ContextManager>>;
 /// It spawns out Executor that manages transaction.
 pub struct ContextManager {
     pub pool: &'static PgPool,
-    pub events: VecDeque<Box<dyn Message>>,
+
+    pub sender: Sender<Box<dyn Message>>,
 }
 
 impl ContextManager {
-    //TODO Creation of ContextManager - Need to be revisted
-    pub async fn new() -> Arc<RwLock<Self>> {
+    /// Creation of context manager returns context manager AND event receiver
+    pub async fn new() -> (Arc<RwLock<Self>>, Receiver<Box<dyn Message>>) {
         let pool = connection_pool().await;
-        Arc::new(RwLock::new(Self {
-            pool,
-            events: Default::default(),
-        }))
+        let (sender, receiver) = channel(20);
+        (Arc::new(RwLock::new(Self { pool, sender })), receiver)
     }
     pub fn executor(&self) -> Arc<RwLock<Executor>> {
         RwLock::new(Executor::new(self.pool)).into()
     }
-    pub fn events(&mut self) -> VecDeque<Box<dyn Message>> {
-        mem::take(&mut self.events)
-    }
+
+
 }
 
 #[derive(Debug)]

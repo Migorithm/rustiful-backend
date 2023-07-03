@@ -39,7 +39,7 @@ impl MessageBus {
     where
         C: Command + AnyTrait,
     {
-        let context_manager = ContextManager::new().await;
+        let (context_manager, mut event_receiver) = ContextManager::new().await;
 
         let res = self
             .command_handler
@@ -50,25 +50,25 @@ impl MessageBus {
             })?(message.as_any(), context_manager.clone())
         .await?;
 
-        let mut event_queue = context_manager.write().await.events();
-        while let Some(msg) = event_queue.pop_front() {
-            // * Logging!
 
-            match self.handle_event(msg, context_manager.clone()).await {
-                Err(ApplicationError::StopSentinel) => {
-                    eprintln!("Stop Sentinel Reached!");
-                    break;
-                }
-                Err(err) => {
-                    eprintln!("Error Occurred While Handling Event! Error:{}", err);
-                }
-                Ok(_) => {
-                    println!("Event Handling Succeeded!")
-                }
-            }
-            for incoming_event in context_manager.write().await.events() {
-                event_queue.push_back(incoming_event)
-            }
+        'event_handling_loop: loop {
+            // * use of try_recv is to stop blocking it when all events are drained. 
+            match event_receiver.try_recv() {
+                // * Logging!
+                Ok(msg) => match self.handle_event(msg, context_manager.clone()).await {
+                    Err(ApplicationError::StopSentinel) => {
+                        eprintln!("Stop Sentinel Reached!");
+                        break;
+                    }
+                    Err(err) => {
+                        eprintln!("Error Occurred While Handling Event! Error:{}", err);
+                    }
+                    Ok(_) => {
+                        println!("Event Handling Succeeded!")
+                    }
+                },
+                Err(_err) => break 'event_handling_loop,
+            };
         }
 
         Ok(res)
@@ -201,8 +201,9 @@ pub mod test_messagebus {
                 state: Default::default(),
             };
 
-            let Ok(ServiceResponse::String(id)) =  ms.handle(create_cmd).await else {
-                panic!("There must be!")
+            let id = match ms.handle(create_cmd).await {
+                Ok(ServiceResponse::String(id)) => id,
+                _ => panic!("!"),
             };
 
             '_test_code: {
