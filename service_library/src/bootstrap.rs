@@ -1,20 +1,14 @@
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
-    sync::{
-        atomic::AtomicPtr,
-        atomic::Ordering::{Acquire, Release},
-    },
+    env,
+    sync::OnceLock,
 };
 
-use sqlx::PgPool;
+use sqlx::{postgres::PgPoolOptions, PgPool};
 
-use crate::services::messagebus::MessageBus;
 use crate::{
-    adapters::{
-        database::{connection_pool, AtomicContextManager},
-        outbox::Outbox,
-    },
+    adapters::{database::AtomicContextManager, outbox::Outbox},
     domain::{
         board::{commands::*, events::BoardCreated},
         commands::ServiceResponse,
@@ -22,6 +16,7 @@ use crate::{
     },
     services::handlers::{self, Future, ServiceHandler},
 };
+use crate::{services::messagebus::MessageBus, utils::ApplicationError};
 
 pub struct Boostrap;
 impl Boostrap {
@@ -32,18 +27,9 @@ impl Boostrap {
 
 ///* `Dependency` is the struct you implement injectable dependencies that will be called inside the function.
 
-pub struct Dependency {
-    pool: &'static PgPool,
-}
+pub struct Dependency;
 
 impl Dependency {
-    fn new(pool: &'static PgPool) -> Self {
-        Self { pool }
-    }
-    pub fn pool(&self) -> &'static PgPool {
-        self.pool
-    }
-
     pub fn some_dependency(&self) -> fn(String, i32) -> ServiceResponse {
         |_: String, _: i32| -> ServiceResponse { ServiceResponse::Empty(()) }
     }
@@ -146,55 +132,63 @@ init_event_handler!(
     }
 );
 
-pub async fn command_handler() -> &'static CommandHandler<AtomicContextManager> {
-    static PTR: AtomicPtr<CommandHandler<AtomicContextManager>> =
-        AtomicPtr::new(std::ptr::null_mut());
-    let mut p = PTR.load(Acquire);
+static COMMAND_HANDLER: OnceLock<CommandHandler<AtomicContextManager>> = OnceLock::new();
 
-    if p.is_null() {
-        p = Box::into_raw(Box::new(init_command_handler().await));
-        if let Err(e) = PTR.compare_exchange(std::ptr::null_mut(), p, Release, Acquire) {
-            // Safety: p comes from Box::into_raw right above
-            // and wasn't whared with any other thread
-            drop(unsafe { Box::from_raw(p) });
-            p = e;
+pub async fn command_handler() -> &'static CommandHandler<AtomicContextManager> {
+    let ch = match COMMAND_HANDLER.get() {
+        None => {
+            let command_handler = init_command_handler().await;
+
+            COMMAND_HANDLER.get_or_init(|| command_handler)
         }
-    }
-    // Safety: p is not null and points to a properly initialized value
-    unsafe { &*p }
+        Some(command_handler) => command_handler,
+    };
+    ch
 }
+
+static EVENT_HANDLER: OnceLock<EventHandler<AtomicContextManager>> = OnceLock::new();
 
 pub async fn event_handler() -> &'static EventHandler<AtomicContextManager> {
-    static PTR: AtomicPtr<EventHandler<AtomicContextManager>> =
-        AtomicPtr::new(std::ptr::null_mut());
-    let mut p = PTR.load(Acquire);
+    let eh = match EVENT_HANDLER.get() {
+        None => {
+            let event_handler = init_event_handler().await;
 
-    if p.is_null() {
-        p = Box::into_raw(Box::new(init_event_handler().await));
-        if let Err(e) = PTR.compare_exchange(std::ptr::null_mut(), p, Release, Acquire) {
-            // Safety: p comes from Box::into_raw right above
-            // and wasn't whared with any other thread
-            drop(unsafe { Box::from_raw(p) });
-            p = e;
+            EVENT_HANDLER.get_or_init(|| event_handler)
         }
-    }
-    // Safety: p is not null and points to a properly initialized value
-    unsafe { &*p }
+        Some(event_handler) => event_handler,
+    };
+    eh
 }
 
-pub async fn dependency() -> &'static Dependency {
-    static PTR: AtomicPtr<Dependency> = AtomicPtr::new(std::ptr::null_mut());
-    let mut p = PTR.load(Acquire);
+static POOL: OnceLock<PgPool> = OnceLock::new();
 
-    if p.is_null() {
-        p = Box::into_raw(Box::new(Dependency::new(connection_pool().await)));
-        if let Err(e) = PTR.compare_exchange(std::ptr::null_mut(), p, Release, Acquire) {
-            // Safety: p comes from Box::into_raw right above
-            // and wasn't whared with any other thread
-            drop(unsafe { Box::from_raw(p) });
-            p = e;
+pub async fn connection_pool() -> &'static PgPool {
+    let url = &env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let p = match POOL.get() {
+        None => {
+            let pool = PgPoolOptions::new()
+                .max_connections(30)
+                .connect(url)
+                .await
+                .map_err(|err| ApplicationError::DatabaseConnectionError(Box::new(err)))
+                .unwrap();
+            POOL.get_or_init(|| pool)
         }
-    }
-    // Safety: p is not null and points to a properly initialized value
-    unsafe { &*p }
+        Some(pool) => pool,
+    };
+    p
+}
+
+static DEPENDENCY: OnceLock<Dependency> = OnceLock::new();
+
+pub async fn dependency() -> &'static Dependency {
+    let dp = match DEPENDENCY.get() {
+        None => {
+            let dependency = Dependency;
+
+            DEPENDENCY.get_or_init(|| dependency)
+        }
+        Some(dependency) => dependency,
+    };
+    dp
 }

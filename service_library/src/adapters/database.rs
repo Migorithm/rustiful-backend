@@ -1,19 +1,19 @@
+use crate::bootstrap::connection_pool;
 use crate::utils::ApplicationError;
 use crate::{domain::Message, utils::ApplicationResult};
 use std::collections::VecDeque;
-use std::sync::OnceLock;
-use std::{env, mem, sync::Arc};
 
-use sqlx::{
-    postgres::{PgPool, PgPoolOptions},
-    Postgres, Transaction,
-};
+use std::{mem, sync::Arc};
+
+use sqlx::{postgres::PgPool, Postgres, Transaction};
 
 use tokio::sync::RwLock;
 
 pub type AtomicContextManager = Arc<RwLock<ContextManager>>;
 
-// ! Task Local ContextManager!
+/// Task Local Context Manager
+/// This is called for every time Messagebus.handle is invoked within which it manages events raised in service.
+/// It spawns out Executor that manages transaction.
 pub struct ContextManager {
     pub pool: &'static PgPool,
     pub events: VecDeque<Box<dyn Message>>,
@@ -101,22 +101,3 @@ impl Executor {
         self.pool
     }
 }
-
-pub async fn connection_pool() -> &'static PgPool {
-    let url = &env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let p = match POOL.get() {
-        None => {
-            let pool = PgPoolOptions::new()
-                .max_connections(30)
-                .connect(url)
-                .await
-                .map_err(|err| ApplicationError::DatabaseConnectionError(Box::new(err)))
-                .unwrap();
-            POOL.get_or_init(|| pool)
-        }
-        Some(pool) => pool,
-    };
-    p
-}
-
-static POOL: OnceLock<PgPool> = OnceLock::new();
