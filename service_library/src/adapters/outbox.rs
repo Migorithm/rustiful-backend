@@ -83,7 +83,7 @@ impl Outbox {
             r#"SELECT * FROM service_outbox WHERE processed = $1"#,
             false
         )
-        .fetch_all(executor.read().await.pool)
+        .fetch_all(executor.read().await.connection())
         .await
         .map_err(|err| {
             eprintln!("{}", err);

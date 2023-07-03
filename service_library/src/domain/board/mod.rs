@@ -27,9 +27,9 @@ impl Aggregate for BoardAggregate {
 
 #[derive(Default)]
 pub struct BoardAggregate {
-    pub board: Board,                       // Root
-    pub comments: Vec<Comment>,             // Entity
-    pub events: VecDeque<Box<dyn Message>>, //Event
+    pub board: Board,                   // Root
+    pub comments: Vec<Comment>,         // Entity
+    events: VecDeque<Box<dyn Message>>, //Event
 }
 
 impl BoardAggregate {

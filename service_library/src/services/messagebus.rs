@@ -50,23 +50,18 @@ impl MessageBus {
             })?(message.as_any(), context_manager.clone())
         .await?;
 
-
         'event_handling_loop: loop {
-            // * use of try_recv is to stop blocking it when all events are drained. 
+            // * use of try_recv is to stop blocking it when all events are drained.
             match event_receiver.try_recv() {
                 // * Logging!
-                Ok(msg) => match self.handle_event(msg, context_manager.clone()).await {
-                    Err(ApplicationError::StopSentinel) => {
-                        eprintln!("Stop Sentinel Reached!");
-                        break;
-                    }
-                    Err(err) => {
-                        eprintln!("Error Occurred While Handling Event! Error:{}", err);
-                    }
-                    Ok(_) => {
-                        println!("Event Handling Succeeded!")
-                    }
-                },
+                Ok(msg) => {
+                    if let Err(ApplicationError::EventNotFound) =
+                        self.handle_event(msg, context_manager.clone()).await
+                    {
+                        continue;
+                    };
+                }
+
                 Err(_err) => break 'event_handling_loop,
             };
         }
@@ -84,12 +79,22 @@ impl MessageBus {
             .event_handler
             .get(&msg.metadata().topic)
             .ok_or_else(|| {
-                eprintln!("Unprocessable Event Given!");
-                ApplicationError::NotFound
+                eprintln!("Unprocessable Event Given! {:?}", msg);
+                ApplicationError::EventNotFound
             })?
         {
-            handler(msg.message_clone(), context_manager.clone()).await?;
-
+            match handler(msg.message_clone(), context_manager.clone()).await {
+                Err(ApplicationError::StopSentinel) => {
+                    eprintln!("Stop Sentinel Reached!");
+                    break;
+                }
+                Err(err) => {
+                    eprintln!("Error Occurred While Handling Event! Error:{}", err);
+                }
+                Ok(_) => {
+                    println!("Event Handling Succeeded!")
+                }
+            }
             #[cfg(test)]
             {
                 self.book_keeper
@@ -203,7 +208,7 @@ pub mod test_messagebus {
 
             let id = match ms.handle(create_cmd).await {
                 Ok(ServiceResponse::String(id)) => id,
-                _ => panic!("!"),
+                _ => panic!("Failed!"),
             };
 
             '_test_code: {

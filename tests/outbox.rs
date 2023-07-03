@@ -25,10 +25,10 @@ mod test_outbox {
             title: "Title!".to_string(),
             content: "Content".to_string(),
             state: BoardState::Published,
-        }; 
+        };
 
-        // ! The Following receiver must exist 
-        let (context_manager,mut _receiver) = ContextManager::new().await;
+        // ! The Following receiver must exist
+        let (context_manager, mut _receiver) = ContextManager::new().await;
 
         match ServiceHandler::create_board(cmd, context_manager.clone()).await {
             Err(err) => '_fail_case: {

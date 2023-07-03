@@ -2,7 +2,6 @@ use crate::bootstrap::connection_pool;
 use crate::utils::ApplicationError;
 use crate::{domain::Message, utils::ApplicationResult};
 
-
 use std::{mem, sync::Arc};
 
 use sqlx::{postgres::PgPool, Postgres, Transaction};
@@ -31,14 +30,12 @@ impl ContextManager {
     pub fn executor(&self) -> Arc<RwLock<Executor>> {
         RwLock::new(Executor::new(self.pool)).into()
     }
-
-
 }
 
 #[derive(Debug)]
 pub struct Executor {
-    pub(crate) pool: &'static PgPool,
-    pub(crate) transaction: Option<Transaction<'static, Postgres>>,
+    pool: &'static PgPool,
+    transaction: Option<Transaction<'static, Postgres>>,
 }
 
 impl Executor {

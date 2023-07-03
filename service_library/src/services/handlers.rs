@@ -93,7 +93,8 @@ impl ServiceHandler {
             uow.begin().await.unwrap();
 
             // ! Todo msg handling logic
-            outbox.update(uow.executor.clone()).await?;
+
+            outbox.update(uow.executor()).await?;
 
             uow.commit().await?;
             Ok(true.into())
