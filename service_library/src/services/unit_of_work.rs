@@ -74,8 +74,8 @@ where
         for e in self.repository.get_events() {
             if e.externally_notifiable() {
                 outboxes.push(e.outbox());
-                continue;
-            } else {
+            };
+            if e.internally_notifiable() {
                 event_sender
                     .send(e.message_clone())
                     .await
