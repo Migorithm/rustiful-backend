@@ -1,5 +1,5 @@
-use std::collections::VecDeque;
 use std::sync::Arc;
+use std::{collections::VecDeque, mem};
 
 use crate::adapters::database::Executor;
 use crate::domain::Message;
@@ -20,8 +20,8 @@ impl TRepository<AuthAggregate> for Repository<AuthAggregate> {
             events: Default::default(),
         }
     }
-    fn get_events(&self) -> &VecDeque<Box<dyn Message>> {
-        &self.events
+    fn get_events(&mut self) -> VecDeque<Box<dyn Message>> {
+        mem::take(&mut self.events)
     }
     fn set_events(&mut self, events: VecDeque<Box<dyn Message>>) {
         self.events = events

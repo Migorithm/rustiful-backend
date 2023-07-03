@@ -39,6 +39,9 @@ impl Message for BoardCreated {
     fn externally_notifiable(&self) -> bool {
         true
     }
+    fn internally_notifiable(&self) -> bool {
+        true
+    }
 
     fn message_clone(&self) -> Box<dyn Message> {
         Box::new(self.clone())

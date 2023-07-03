@@ -23,6 +23,9 @@ pub trait Message: Sync + Send + Any + Downcast {
     fn externally_notifiable(&self) -> bool {
         false
     }
+    fn internally_notifiable(&self) -> bool {
+        false
+    }
 
     fn metadata(&self) -> MessageMetadata;
     fn outbox(&self) -> Outbox {
