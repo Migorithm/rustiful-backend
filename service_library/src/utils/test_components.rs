@@ -1,8 +1,10 @@
 #[cfg(test)]
 pub mod components {
-    use crate::adapters::database::connection_pool;
+
     use dotenv::dotenv;
     use futures::Future;
+
+    use crate::bootstrap::connection_pool;
 
     pub async fn tear_down() {
         let pool = connection_pool().await;

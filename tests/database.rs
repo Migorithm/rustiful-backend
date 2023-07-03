@@ -8,9 +8,10 @@ pub mod database_tests {
     use crate::helpers::functions::*;
     use service_library::{
         adapters::{
-            database::{connection_pool, Executor},
+            database::Executor,
             repositories::{Repository, TRepository},
         },
+        bootstrap::connection_pool,
         domain::board::{entity::BoardState, BoardAggregate},
     };
     use tokio::sync::RwLock;

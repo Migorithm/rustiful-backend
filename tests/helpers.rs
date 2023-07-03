@@ -1,15 +1,15 @@
 #[cfg(test)]
 pub mod functions {
 
-    use std::str::FromStr;
     use std::sync::Arc;
 
     use futures::Future;
-    use service_library::adapters::database::{connection_pool, Executor};
+    use service_library::adapters::database::Executor;
     use service_library::adapters::repositories::{Repository, TRepository};
 
     use dotenv::dotenv;
-    use service_library::domain::board::entity::{Board, BoardState, Comment};
+    use service_library::bootstrap::connection_pool;
+    use service_library::domain::board::entity::{Board, BoardState};
 
     use service_library::domain::board::BoardAggregate;
     use service_library::domain::builder::{Buildable, Builder};
@@ -39,11 +39,6 @@ pub mod functions {
                 state,
             ))
             .build()
-    }
-    pub fn comment_create_helper(id: &str) -> Comment {
-        let uuidfied = Uuid::from_str(id).expect("Not Uuidfiable!");
-
-        Comment::new(uuidfied, Uuid::new_v4(), "노잼")
     }
 
     pub async fn run_test<T>(test: T)

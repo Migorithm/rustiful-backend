@@ -14,16 +14,12 @@ mod test_outbox {
     use uuid::Uuid;
 
     use service_library::{
-        adapters::{
-            database::{AtomicContextManager, ContextManager},
-            outbox::Outbox,
-            repositories::TRepository,
-        },
+        adapters::{database::ContextManager, outbox::Outbox, repositories::TRepository},
         domain::board::entity::BoardState,
         services::unit_of_work::UnitOfWork,
     };
 
-    async fn outbox_setup(connection: AtomicContextManager) {
+    async fn outbox_setup() {
         let cmd = CreateBoard {
             author: Uuid::new_v4(),
             title: "Title!".to_string(),
@@ -53,7 +49,7 @@ mod test_outbox {
     async fn test_create_board_leaves_outbox() {
         run_test(async {
             let context_manager = ContextManager::new().await;
-            outbox_setup(context_manager.clone()).await;
+            outbox_setup().await;
 
             '_test_case: {
                 match Outbox::get(context_manager.read().await.executor()).await {
@@ -75,7 +71,7 @@ mod test_outbox {
     async fn test_convert_event() {
         run_test(async {
             let context_manager = ContextManager::new().await;
-            outbox_setup(context_manager.clone()).await;
+            outbox_setup().await;
 
             '_test_case: {
                 let vec_of_outbox = Outbox::get(context_manager.read().await.executor())
@@ -104,7 +100,7 @@ mod test_outbox {
     async fn test_outbox_event_handled_by_messagebus() {
         run_test(async {
             let context_manager = ContextManager::new().await;
-            outbox_setup(context_manager.clone()).await;
+            outbox_setup().await;
 
             '_test_case: {
                 let bus = Boostrap::message_bus().await;

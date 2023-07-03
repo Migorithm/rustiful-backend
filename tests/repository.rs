@@ -9,7 +9,7 @@ mod repository_tests {
     use std::str::FromStr;
 
     use service_library::domain::board::commands::EditBoard;
-    use service_library::domain::board::entity::BoardState;
+    use service_library::domain::board::entity::{BoardState, Comment};
 
     use service_library::domain::board::BoardAggregate;
     use service_library::domain::builder::{Buildable, Builder};
@@ -202,7 +202,11 @@ mod repository_tests {
             }
 
             '_transaction_block2: {
-                let comment = comment_create_helper(&id);
+                let comment = Comment::new(
+                    Uuid::from_str(&id).expect("Not Uuidfiable!"),
+                    Uuid::new_v4(),
+                    "노잼",
+                );
 
                 let mut board_builder = BoardAggregate::builder();
                 board_builder = board_builder

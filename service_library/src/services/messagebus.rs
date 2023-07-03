@@ -8,7 +8,6 @@ use crate::{
     utils::{ApplicationError, ApplicationResult},
 };
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 #[cfg(test)]
 use std::sync::atomic::AtomicI32;
@@ -78,7 +77,7 @@ impl MessageBus {
     async fn handle_event(
         &self,
         msg: Box<dyn Message>,
-        context_manager: Arc<RwLock<ContextManager>>,
+        context_manager: AtomicContextManager,
     ) -> ApplicationResult<()> {
         // ! msg.topic() returns the name of event. It is crucial that it corresponds to the key registered on Event Handler.
         for handler in self
@@ -108,9 +107,9 @@ pub mod test_messagebus {
     use std::str::FromStr;
     use std::sync::Arc;
 
-    use crate::adapters::database::{connection_pool, Executor};
+    use crate::adapters::database::Executor;
     use crate::adapters::repositories::{Repository, TRepository};
-    use crate::bootstrap::Boostrap;
+    use crate::bootstrap::{connection_pool, Boostrap};
     use crate::domain::board::commands::{AddComment, CreateBoard, EditBoard};
     use crate::domain::board::BoardAggregate;
     use crate::domain::commands::ServiceResponse;

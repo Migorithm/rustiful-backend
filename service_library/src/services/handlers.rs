@@ -1,9 +1,6 @@
 use std::pin::Pin;
-use std::sync::Arc;
 
-use tokio::sync::RwLock;
-
-use crate::adapters::database::ContextManager;
+use crate::adapters::database::AtomicContextManager;
 use crate::adapters::outbox::Outbox;
 use crate::adapters::repositories::{Repository, TRepository};
 
@@ -23,7 +20,7 @@ pub struct ServiceHandler;
 impl ServiceHandler {
     pub fn create_board(
         cmd: CreateBoard,
-        context: Arc<RwLock<ContextManager>>,
+        context: AtomicContextManager,
     ) -> Future<ServiceResponse> {
         Box::pin(async move {
             let mut uow =
@@ -39,10 +36,7 @@ impl ServiceHandler {
         })
     }
 
-    pub fn edit_board(
-        cmd: EditBoard,
-        context: Arc<RwLock<ContextManager>>,
-    ) -> Future<ServiceResponse> {
+    pub fn edit_board(cmd: EditBoard, context: AtomicContextManager) -> Future<ServiceResponse> {
         Box::pin(async move {
             let mut uow =
                 UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(context.clone())
@@ -57,10 +51,7 @@ impl ServiceHandler {
         })
     }
 
-    pub fn add_comment(
-        cmd: AddComment,
-        context: Arc<RwLock<ContextManager>>,
-    ) -> Future<ServiceResponse> {
+    pub fn add_comment(cmd: AddComment, context: AtomicContextManager) -> Future<ServiceResponse> {
         Box::pin(async move {
             let mut uow =
                 UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(context.clone())
@@ -76,7 +67,7 @@ impl ServiceHandler {
 
     pub fn edit_comment(
         cmd: EditComment,
-        context: Arc<RwLock<ContextManager>>,
+        context: AtomicContextManager,
     ) -> Future<ServiceResponse> {
         Box::pin(async move {
             let mut uow =
@@ -91,10 +82,7 @@ impl ServiceHandler {
         })
     }
 
-    pub fn handle_outbox(
-        outbox: Outbox,
-        context: Arc<RwLock<ContextManager>>,
-    ) -> Future<ServiceResponse> {
+    pub fn handle_outbox(outbox: Outbox, context: AtomicContextManager) -> Future<ServiceResponse> {
         Box::pin(async move {
             let _msg = outbox.convert_event();
 
@@ -117,7 +105,7 @@ pub struct EventHandler;
 impl EventHandler {
     pub fn test_event_handler(
         _event: BoardCreated,
-        context: Arc<RwLock<ContextManager>>,
+        context: AtomicContextManager,
         some_dependency: fn(String, i32) -> ServiceResponse,
     ) -> Future<ServiceResponse> {
         Box::pin(async move {
@@ -133,7 +121,7 @@ impl EventHandler {
     }
     pub fn test_event_handler2(
         _event: BoardCreated,
-        context: Arc<RwLock<ContextManager>>,
+        context: AtomicContextManager,
     ) -> Future<ServiceResponse> {
         Box::pin(async move {
             let mut uow =
