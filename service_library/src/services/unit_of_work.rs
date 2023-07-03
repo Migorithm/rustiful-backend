@@ -20,7 +20,6 @@ where
     pub repository: R,
     _aggregate: PhantomData<A>,
 }
-
 impl<R, A> UnitOfWork<R, A>
 where
     R: TRepository<A>,
@@ -57,6 +56,7 @@ where
     }
     async fn _commit(&mut self) -> ApplicationResult<()> {
         let mut executor = self.executor.write().await;
+
         executor.commit().await
     }
 

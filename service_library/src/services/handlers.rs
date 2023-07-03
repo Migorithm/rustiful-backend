@@ -131,6 +131,7 @@ impl EventHandler {
             uow.begin().await.unwrap();
             println!("You got here too!");
             uow.commit().await?;
+
             Ok(ServiceResponse::Empty(()))
         })
     }
