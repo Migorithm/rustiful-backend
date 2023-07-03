@@ -102,16 +102,17 @@ mod test_outbox {
     #[test]
     async fn test_outbox_event_handled_by_messagebus() {
         run_test(async {
-            let (context_manager, _) = ContextManager::new().await;
+            let (context_manager, _rv) = ContextManager::new().await;
+
+            let executor = context_manager.read().await.executor();
+            drop(context_manager);
+
             outbox_setup().await;
 
             '_test_case: {
                 let bus = Boostrap::message_bus().await;
-                println!("he");
-                for e in Outbox::get(context_manager.read().await.executor())
-                    .await
-                    .unwrap()
-                {
+
+                for e in Outbox::get(executor.clone()).await.unwrap() {
                     //TODO Messagebus for outbox?
                     match bus.handle(e).await {
                         Ok(_var) => {
@@ -121,9 +122,7 @@ mod test_outbox {
                     }
                 }
 
-                let boxes = Outbox::get(context_manager.read().await.executor())
-                    .await
-                    .unwrap();
+                let boxes = Outbox::get(executor).await.unwrap();
                 assert!(boxes.is_empty());
             }
         })

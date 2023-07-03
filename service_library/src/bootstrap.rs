@@ -31,7 +31,17 @@ pub struct Dependency;
 
 impl Dependency {
     pub fn some_dependency(&self) -> fn(String, i32) -> ServiceResponse {
-        |_: String, _: i32| -> ServiceResponse { ServiceResponse::Empty(()) }
+        if cfg!(test) {
+            |_: String, _: i32| -> ServiceResponse {
+                println!("Some dependency invoked in test environment!");
+                ServiceResponse::Empty(())
+            }
+        } else {
+            |_: String, _: i32| -> ServiceResponse {
+                println!("Not Test");
+                ServiceResponse::Empty(())
+            }
+        }
     }
 }
 
@@ -58,7 +68,6 @@ macro_rules! init_command_handler {
                         |c:Box<dyn Any+Send+Sync>, context_manager: AtomicContextManager|->Future<ServiceResponse>{
                             // * Convert event so event handler accepts not Box<dyn Message> but `event_happend` type of message.
                             // ! Logically, as it's from TypId of command, it doesn't make to cause an error.
-
                             $handler(
                                 *c.downcast::<$command>().unwrap(),
                                 context_manager,

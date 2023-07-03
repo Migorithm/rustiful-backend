@@ -1,3 +1,5 @@
+use tokio::sync::mpsc::error::TryRecvError;
+
 use crate::{
     adapters::database::{AtomicContextManager, ContextManager},
     bootstrap::{CommandHandler, EventHandler},
@@ -61,11 +63,17 @@ impl MessageBus {
                         continue;
                     };
                 }
-
-                Err(_err) => break 'event_handling_loop,
+                Err(TryRecvError::Empty) => {
+                    if Arc::strong_count(&context_manager) == 1 {
+                        break 'event_handling_loop;
+                    } else {
+                        continue;
+                    }
+                }
+                Err(TryRecvError::Disconnected) => break 'event_handling_loop,
             };
         }
-
+        drop(context_manager);
         Ok(res)
     }
 
@@ -75,14 +83,16 @@ impl MessageBus {
         context_manager: AtomicContextManager,
     ) -> ApplicationResult<()> {
         // ! msg.topic() returns the name of event. It is crucial that it corresponds to the key registered on Event Handler.
-        for handler in self
+
+        let handlers = self
             .event_handler
             .get(&msg.metadata().topic)
             .ok_or_else(|| {
                 eprintln!("Unprocessable Event Given! {:?}", msg);
                 ApplicationError::EventNotFound
-            })?
-        {
+            })?;
+
+        for handler in handlers.iter() {
             match handler(msg.message_clone(), context_manager.clone()).await {
                 Err(ApplicationError::StopSentinel) => {
                     eprintln!("Stop Sentinel Reached!");
@@ -91,10 +101,11 @@ impl MessageBus {
                 Err(err) => {
                     eprintln!("Error Occurred While Handling Event! Error:{}", err);
                 }
-                Ok(_) => {
-                    println!("Event Handling Succeeded!")
+                Ok(_val) => {
+                    println!("Event Handling Succeeded!");
                 }
-            }
+            };
+
             #[cfg(test)]
             {
                 self.book_keeper
