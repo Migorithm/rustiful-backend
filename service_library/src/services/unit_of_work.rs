@@ -49,8 +49,8 @@ where
 
     pub async fn commit(mut self) -> ApplicationResult<()> {
         // To drop uow itself!
-        self._save_outboxes(self.executor.clone()).await?;
-        self._collect_events().await;
+
+        self._commit_hook().await?;
 
         self._commit().await
     }
@@ -65,24 +65,24 @@ where
         executor.rollback().await
     }
 
-    pub async fn _save_outboxes(&self, executor: Arc<RwLock<Executor>>) -> ApplicationResult<()> {
-        Outbox::add(
-            executor,
-            self.repository._collect_outbox().collect::<Vec<_>>(),
-        )
-        .await?;
-
-        Ok(())
-    }
-    pub async fn _collect_events(&mut self) {
+    /// commit_hook is invoked right before the calling for commit
+    /// which sorts out and processes outboxes and internally processable events.
+    pub async fn _commit_hook(&mut self) -> ApplicationResult<()> {
         let event_sender = &mut self.context.write().await.sender;
+        let mut outboxes = vec![];
 
-        for e in self.repository.get_events().iter() {
-            event_sender
-                .send(e.message_clone())
-                .await
-                .expect("Event Collecting failed!")
+        for e in self.repository.get_events() {
+            if e.externally_notifiable() {
+                outboxes.push(e.outbox());
+                continue;
+            } else {
+                event_sender
+                    .send(e.message_clone())
+                    .await
+                    .expect("Event Collecting failed!")
+            }
         }
+        Outbox::add(self.executor(), outboxes).await
     }
 }
 

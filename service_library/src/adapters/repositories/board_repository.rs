@@ -11,6 +11,7 @@ use tokio::sync::RwLock;
 
 use std::collections::VecDeque;
 
+use std::mem;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -27,8 +28,8 @@ impl TRepository<BoardAggregate> for Repository<BoardAggregate> {
             events: Default::default(),
         }
     }
-    fn get_events(&self) -> &VecDeque<Box<dyn Message>> {
-        &self.events
+    fn get_events(&mut self) -> VecDeque<Box<dyn Message>> {
+        mem::take(&mut self.events)
     }
     fn set_events(&mut self, events: VecDeque<Box<dyn Message>>) {
         self.events = events
