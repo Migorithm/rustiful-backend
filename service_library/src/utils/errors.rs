@@ -12,6 +12,7 @@ pub enum ApplicationError {
     TransactionError,
     ParsingError,
     StopSentinel,
+    EventNotFound,
 }
 
 impl error::Error for ApplicationError {}
@@ -23,6 +24,7 @@ impl Display for ApplicationError {
             ApplicationError::DeserializationError(res) => write!(f, "{}", res),
             ApplicationError::InExecutableEvent => write!(f, "InExecutableEvent"),
             ApplicationError::NotFound => write!(f, "NotFound"),
+            ApplicationError::EventNotFound => write!(f, "EventNotFound"),
             ApplicationError::InvalidURL => write!(f, "InvalidURL"),
             ApplicationError::TransactionError => write!(f, "TransactionError"),
             ApplicationError::StopSentinel => write!(f, "StopSentinel"),

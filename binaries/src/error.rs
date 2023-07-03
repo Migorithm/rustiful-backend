@@ -31,6 +31,10 @@ impl IntoResponse for Exception {
                 StatusCode::NOT_FOUND,
                 ApplicationError::NotFound.to_string(),
             ),
+            ApplicationError::EventNotFound => (
+                StatusCode::NOT_FOUND,
+                ApplicationError::EventNotFound.to_string(),
+            ),
             ApplicationError::TransactionError => (
                 StatusCode::BAD_GATEWAY,
                 ApplicationError::TransactionError.to_string(),
