@@ -8,7 +8,7 @@ pub mod database_tests {
     use crate::helpers::functions::*;
     use service_library::{
         adapters::{
-            database::{connection_pool, ContextManager, Executor},
+            database::{connection_pool, Executor},
             repositories::{Repository, TRepository},
         },
         domain::board::{entity::BoardState, BoardAggregate},
@@ -40,7 +40,7 @@ pub mod database_tests {
             executor.write().await.begin().await.unwrap();
 
             let mut board_repo: Repository<BoardAggregate> =
-                board_repository_helper(executor.clone()).await;
+                board_repository_helper(executor.clone());
 
             let mut board_aggregate = board_create_helper(BoardState::Unpublished);
             let id = board_repo.add(&mut board_aggregate).await.unwrap();
@@ -63,7 +63,7 @@ pub mod database_tests {
             executor.write().await.begin().await.unwrap();
             // let trx: Transactions = connection.begin().await.unwrap();
             let mut board_repo: Repository<BoardAggregate> =
-                board_repository_helper(executor.clone()).await;
+                board_repository_helper(executor.clone());
 
             let mut board_aggregate = board_create_helper(BoardState::Unpublished);
             let id = board_repo.add(&mut board_aggregate).await.unwrap();

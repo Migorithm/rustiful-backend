@@ -5,9 +5,7 @@ pub mod functions {
     use std::sync::Arc;
 
     use futures::Future;
-    use service_library::adapters::database::{
-        connection_pool, AtomicContextManager, ContextManager, Executor,
-    };
+    use service_library::adapters::database::{connection_pool, Executor};
     use service_library::adapters::repositories::{Repository, TRepository};
 
     use dotenv::dotenv;
@@ -27,9 +25,7 @@ pub mod functions {
             .unwrap();
     }
 
-    pub async fn board_repository_helper(
-        executor: Arc<RwLock<Executor>>,
-    ) -> Repository<BoardAggregate> {
+    pub fn board_repository_helper(executor: Arc<RwLock<Executor>>) -> Repository<BoardAggregate> {
         Repository::new(executor)
     }
 

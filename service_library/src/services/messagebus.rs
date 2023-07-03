@@ -51,7 +51,8 @@ impl MessageBus {
             })?(message.as_any(), context_manager.clone())
         .await?;
 
-        while let Some(msg) = context_manager.write().await.events.pop_front() {
+        let mut event_queue = context_manager.write().await.events();
+        while let Some(msg) = event_queue.pop_front() {
             // * Logging!
 
             match self.handle_event(msg, context_manager.clone()).await {
@@ -65,6 +66,9 @@ impl MessageBus {
                 Ok(_) => {
                     println!("Event Handling Succeeded!")
                 }
+            }
+            for incoming_event in context_manager.write().await.events() {
+                event_queue.push_back(incoming_event)
             }
         }
 

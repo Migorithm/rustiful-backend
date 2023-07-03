@@ -26,7 +26,7 @@ mod repository_tests {
             '_transaction_block: {
                 executor.write().await.begin().await.unwrap();
 
-                let mut board_repo = board_repository_helper(executor.clone()).await;
+                let mut board_repo = board_repository_helper(executor.clone());
 
                 let mut board_aggregate = board_create_helper(BoardState::Unpublished);
 
@@ -45,7 +45,7 @@ mod repository_tests {
             let context_manager = ContextManager::new().await;
             let executor = context_manager.read().await.executor();
 
-            let mut board_repo = board_repository_helper(executor.clone()).await;
+            let mut board_repo = board_repository_helper(executor.clone());
             let id: String;
 
             '_tranasction_block: {
@@ -71,7 +71,7 @@ mod repository_tests {
             let context_manager = ContextManager::new().await;
             let executor = context_manager.read().await.executor();
 
-            let mut board_repo = board_repository_helper(executor.clone()).await;
+            let mut board_repo = board_repository_helper(executor.clone());
             let id: String;
 
             '_transaction_block: {
@@ -98,7 +98,7 @@ mod repository_tests {
             let context_manager = ContextManager::new().await;
             let executor = context_manager.read().await.executor();
 
-            let mut board_repo = board_repository_helper(executor.clone()).await;
+            let mut board_repo = board_repository_helper(executor.clone());
             let id: String;
 
             '_transaction_block: {
@@ -136,7 +136,7 @@ mod repository_tests {
         run_test(async {
             let context_manager = ContextManager::new().await;
             let executor = context_manager.read().await.executor();
-            let mut board_repo = board_repository_helper(executor.clone()).await;
+            let mut board_repo = board_repository_helper(executor.clone());
             let id: String;
 
             let existing_content: String;
@@ -190,7 +190,7 @@ mod repository_tests {
         run_test(async {
             let context_manager = ContextManager::new().await;
             let executor = context_manager.read().await.executor();
-            let mut board_repo = board_repository_helper(executor.clone()).await;
+            let mut board_repo = board_repository_helper(executor.clone());
             let mut board_aggregate: BoardAggregate;
             let id: String;
 

@@ -31,6 +31,9 @@ impl ContextManager {
     pub fn executor(&self) -> Arc<RwLock<Executor>> {
         RwLock::new(Executor::new(self.pool)).into()
     }
+    pub fn events(&mut self) -> VecDeque<Box<dyn Message>> {
+        mem::take(&mut self.events)
+    }
 }
 
 #[derive(Debug)]

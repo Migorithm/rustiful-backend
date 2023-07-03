@@ -1,14 +1,12 @@
-use std::collections::VecDeque;
 use std::marker::PhantomData;
 
 use std::sync::Arc;
 
-use sqlx::PgPool;
 use tokio::sync::RwLock;
 
-use crate::adapters::database::Executor;
+use crate::adapters::database::{AtomicContextManager, Executor};
 use crate::adapters::repositories::TRepository;
-use crate::domain::{Aggregate, Message};
+use crate::domain::Aggregate;
 use crate::utils::ApplicationError;
 use crate::{adapters::outbox::Outbox, utils::ApplicationResult};
 
@@ -18,6 +16,7 @@ where
     A: Aggregate + 'static,
 {
     pub executor: Arc<RwLock<Executor>>,
+    pub context: AtomicContextManager,
     pub repository: R,
     pub _aggregate: PhantomData<A>,
 }
@@ -27,10 +26,11 @@ where
     R: TRepository<A>,
     A: Aggregate,
 {
-    pub fn new(pool: &'static PgPool) -> Self {
-        let executor = Arc::new(RwLock::new(Executor::new(pool)));
+    pub async fn new(context: AtomicContextManager) -> Self {
+        let executor = context.read().await.executor();
         Self {
             repository: R::new(executor.clone()),
+            context,
             executor,
             _aggregate: PhantomData::<A>,
         }
@@ -71,15 +71,12 @@ where
         Ok(())
     }
     pub async fn _collect_events(&mut self) {
-        let mut events: VecDeque<Box<dyn Message>> =
-            VecDeque::with_capacity(self.repository.get_events().len());
+        let local_events = &mut self.context.write().await.events;
+
         self.repository
             .get_events()
             .iter()
-            .for_each(|e| events.push_back(e.message_clone()));
-
-        //TODO Send event
-        // self.connection.write().await.events = events;
+            .for_each(|e| local_events.push_back(e.message_clone()));
     }
 }
 
@@ -87,10 +84,9 @@ where
 #[cfg(test)]
 mod test_unit_of_work {
 
-    use tokio::sync::mpsc;
     use uuid::Uuid;
 
-    use crate::adapters::database::connection_pool;
+    use crate::adapters::database::ContextManager;
 
     use crate::adapters::repositories::{Repository, TRepository};
     use crate::domain::board::commands::CreateBoard;
@@ -99,14 +95,14 @@ mod test_unit_of_work {
         BoardAggregate,
     };
     use crate::domain::builder::{Buildable, Builder};
-    use crate::domain::Message;
+
     use crate::services::unit_of_work::UnitOfWork;
     use crate::utils::test_components::components::*;
 
     #[tokio::test]
     async fn test_unit_of_work() {
         run_test(async {
-            let pool = connection_pool().await;
+            let ctx_manager = ContextManager::new().await;
 
             '_transaction_block: {
                 let builder = BoardAggregate::builder();
@@ -120,13 +116,19 @@ mod test_unit_of_work {
                     .build();
                 let id: String = boardaggregate.board.id.to_string();
 
-                let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(pool);
+                let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                    ctx_manager.clone(),
+                )
+                .await;
                 uow.begin().await.unwrap();
                 uow.repository.add(&mut boardaggregate).await.unwrap();
                 uow.commit().await.unwrap();
 
                 '_test_block: {
-                    let uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(pool);
+                    let uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                        ctx_manager.clone(),
+                    )
+                    .await;
                     if let Err(err) = uow.repository.get(&id).await {
                         panic!("Fetch Error!:{}", err)
                     };
@@ -144,13 +146,19 @@ mod test_unit_of_work {
                     ))
                     .build();
                 let id: String = boardaggregate.board.id.to_string();
-                let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(pool);
+                let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                    ctx_manager.clone(),
+                )
+                .await;
                 uow.begin().await.unwrap();
                 uow.repository.add(&mut boardaggregate).await.unwrap();
                 uow.rollback().await.unwrap();
 
                 '_test_block: {
-                    let uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(pool);
+                    let uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                        ctx_manager.clone(),
+                    )
+                    .await;
                     if let Ok(_val) = uow.repository.get(&id).await {
                         panic!("Shouldn't be able to fetch after rollback!!")
                     };
@@ -163,9 +171,8 @@ mod test_unit_of_work {
     #[tokio::test]
     async fn test_unit_of_work_event_collection() {
         run_test(async {
-            let pool = connection_pool().await;
             // TODO Subject to deletion
-            let (sx, mut rx) = mpsc::unbounded_channel::<Box<dyn Message>>();
+            let ctx_manager = ContextManager::new().await;
 
             '_transaction_block: {
                 let builder = BoardAggregate::builder();
@@ -179,21 +186,25 @@ mod test_unit_of_work {
                     state: BoardState::Published,
                 });
                 let id: String = boardaggregate.board.id.to_string();
-                let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(pool);
+
+                // inject context
+                let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                    ctx_manager.clone(),
+                )
+                .await;
                 uow.begin().await.unwrap();
                 uow.repository.add(&mut boardaggregate).await.unwrap();
                 uow.commit().await.unwrap();
 
                 '_test_block: {
-                    let uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(pool);
+                    let uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                        ctx_manager.clone(),
+                    )
+                    .await;
                     if let Err(err) = uow.repository.get(&id).await {
                         panic!("Fetch Error!:{}", err)
                     };
-                    let mut count = 0;
-                    while let Some(vec_msg) = rx.recv().await {
-                        count += 1
-                    }
-                    assert_eq!(count, 1)
+                    assert_eq!(ctx_manager.read().await.events.len(), 1);
                 }
             }
         })

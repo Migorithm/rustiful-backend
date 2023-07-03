@@ -26,9 +26,9 @@ impl ServiceHandler {
         context: Arc<RwLock<ContextManager>>,
     ) -> Future<ServiceResponse> {
         Box::pin(async move {
-            let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
-                context.read().await.pool,
-            );
+            let mut uow =
+                UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(context.clone())
+                    .await;
             uow.begin().await.unwrap();
             let builder = BoardAggregate::builder();
             let mut board_aggregate: BoardAggregate = builder.build();
@@ -44,9 +44,9 @@ impl ServiceHandler {
         context: Arc<RwLock<ContextManager>>,
     ) -> Future<ServiceResponse> {
         Box::pin(async move {
-            let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
-                context.read().await.pool,
-            );
+            let mut uow =
+                UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(context.clone())
+                    .await;
             uow.begin().await.unwrap();
             let mut board_aggregate = uow.repository.get(&cmd.id.to_string()).await?;
             board_aggregate.update_board(cmd);
@@ -62,9 +62,9 @@ impl ServiceHandler {
         context: Arc<RwLock<ContextManager>>,
     ) -> Future<ServiceResponse> {
         Box::pin(async move {
-            let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
-                context.read().await.pool,
-            );
+            let mut uow =
+                UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(context.clone())
+                    .await;
             uow.begin().await.unwrap();
             let mut board_aggregate = uow.repository.get(&cmd.board_id.to_string()).await?;
             board_aggregate.add_comment(cmd);
@@ -79,9 +79,9 @@ impl ServiceHandler {
         context: Arc<RwLock<ContextManager>>,
     ) -> Future<ServiceResponse> {
         Box::pin(async move {
-            let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
-                context.read().await.pool,
-            );
+            let mut uow =
+                UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(context.clone())
+                    .await;
             uow.begin().await.unwrap();
             let mut board_aggregate = uow.repository.get(&cmd.board_id.to_string()).await?;
             board_aggregate.edit_comment(cmd)?;
@@ -98,9 +98,9 @@ impl ServiceHandler {
         Box::pin(async move {
             let _msg = outbox.convert_event();
 
-            let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
-                context.read().await.pool,
-            );
+            let mut uow =
+                UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(context.clone())
+                    .await;
 
             uow.begin().await.unwrap();
 
@@ -121,9 +121,9 @@ impl EventHandler {
         some_dependency: fn(String, i32) -> ServiceResponse,
     ) -> Future<ServiceResponse> {
         Box::pin(async move {
-            let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
-                context.read().await.pool,
-            );
+            let mut uow =
+                UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(context.clone())
+                    .await;
             uow.begin().await.unwrap();
             println!("You got here!");
             uow.commit().await?;
@@ -136,9 +136,9 @@ impl EventHandler {
         context: Arc<RwLock<ContextManager>>,
     ) -> Future<ServiceResponse> {
         Box::pin(async move {
-            let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
-                context.read().await.pool,
-            );
+            let mut uow =
+                UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(context.clone())
+                    .await;
             uow.begin().await.unwrap();
             println!("You got here too!");
             uow.commit().await?;

@@ -30,18 +30,18 @@ mod test_outbox {
             content: "Content".to_string(),
             state: BoardState::Published,
         };
-        let pool = connection.read().await.pool;
-
-        let uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(pool);
-
         let context_manager = ContextManager::new().await;
-        match ServiceHandler::create_board(cmd, context_manager).await {
+
+        match ServiceHandler::create_board(cmd, context_manager.clone()).await {
             Err(err) => '_fail_case: {
                 panic!("Service Handling Failed! {}", err)
             }
             Ok(response) => '_test: {
                 let id: String = response.try_into().unwrap();
-
+                let uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                    context_manager.clone(),
+                )
+                .await;
                 if let Err(err) = uow.repository.get(&id).await {
                     panic!("Fetching newly created object failed! : {}", err);
                 };
