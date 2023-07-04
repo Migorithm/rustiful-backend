@@ -6,13 +6,13 @@ pub type AnyError = dyn error::Error + Send + Sync;
 pub enum ApplicationError {
     DatabaseConnectionError(Box<AnyError>),
     DeserializationError(Box<AnyError>),
-    InExecutableEvent,
-    NotFound,
+    EntityNotFound,
+    EventNotFound,
+    CommandNotFound,
     InvalidURL,
     TransactionError,
     ParsingError,
     StopSentinel,
-    EventNotFound,
 }
 
 impl error::Error for ApplicationError {}
@@ -22,8 +22,8 @@ impl Display for ApplicationError {
         match self {
             ApplicationError::DatabaseConnectionError(res) => write!(f, "{}", res),
             ApplicationError::DeserializationError(res) => write!(f, "{}", res),
-            ApplicationError::InExecutableEvent => write!(f, "InExecutableEvent"),
-            ApplicationError::NotFound => write!(f, "NotFound"),
+            ApplicationError::EntityNotFound => write!(f, "EntityNotFound"),
+            ApplicationError::CommandNotFound => write!(f, "CommandNotFound"),
             ApplicationError::EventNotFound => write!(f, "EventNotFound"),
             ApplicationError::InvalidURL => write!(f, "InvalidURL"),
             ApplicationError::TransactionError => write!(f, "TransactionError"),

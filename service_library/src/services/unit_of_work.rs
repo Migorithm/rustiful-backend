@@ -38,9 +38,7 @@ where
     pub async fn begin(&mut self) -> Result<(), ApplicationError> {
         // TODO Need to be simplified
         let mut executor = self.executor.write().await;
-
-        executor.begin().await?;
-        Ok(())
+        executor.begin().await
     }
 
     pub fn executor(&self) -> Arc<RwLock<Executor>> {

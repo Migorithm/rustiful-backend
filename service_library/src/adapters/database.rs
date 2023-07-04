@@ -54,14 +54,14 @@ impl Executor {
                         .begin()
                         .await
                         .map_err(|err| ApplicationError::DatabaseConnectionError(Box::new(err)))?,
-                )
+                );
+                Ok(())
             }
             Some(_trx) => {
                 println!("Transaction Begun Already!");
                 Err(ApplicationError::TransactionError)?
             }
-        };
-        Ok(())
+        }
     }
 
     pub async fn commit(&mut self) -> ApplicationResult<()> {
@@ -72,8 +72,7 @@ impl Executor {
         let trx = mem::take(&mut self.transaction).unwrap();
         trx.commit()
             .await
-            .map_err(|err| ApplicationError::DatabaseConnectionError(Box::new(err)))?;
-        Ok(())
+            .map_err(|err| ApplicationError::DatabaseConnectionError(Box::new(err)))
     }
     pub async fn rollback(&mut self) -> ApplicationResult<()> {
         if self.transaction.is_none() {
@@ -83,8 +82,7 @@ impl Executor {
         let trx = mem::take(&mut self.transaction).unwrap();
         trx.rollback()
             .await
-            .map_err(|err| ApplicationError::DatabaseConnectionError(Box::new(err)))?;
-        Ok(())
+            .map_err(|err| ApplicationError::DatabaseConnectionError(Box::new(err)))
     }
 
     pub fn transaction(&mut self) -> &mut Transaction<'static, Postgres> {
