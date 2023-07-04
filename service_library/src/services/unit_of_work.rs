@@ -34,7 +34,9 @@ where
             _aggregate: PhantomData::<A>,
         }
     }
-
+    pub fn repository(&mut self) -> &mut R {
+        &mut self.repository
+    }
     pub async fn begin(&mut self) -> Result<(), ApplicationError> {
         // TODO Need to be simplified
         let mut executor = self.executor.write().await;
@@ -125,15 +127,15 @@ mod test_unit_of_work {
                 )
                 .await;
                 uow.begin().await.unwrap();
-                uow.repository.add(&mut boardaggregate).await.unwrap();
+                uow.repository().add(&mut boardaggregate).await.unwrap();
                 uow.commit().await.unwrap();
 
                 '_test_block: {
-                    let uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                    let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
                         ctx_manager.clone(),
                     )
                     .await;
-                    if let Err(err) = uow.repository.get(&id).await {
+                    if let Err(err) = uow.repository().get(&id).await {
                         panic!("Fetch Error!:{}", err)
                     };
                 }
@@ -155,15 +157,15 @@ mod test_unit_of_work {
                 )
                 .await;
                 uow.begin().await.unwrap();
-                uow.repository.add(&mut boardaggregate).await.unwrap();
+                uow.repository().add(&mut boardaggregate).await.unwrap();
                 uow.rollback().await.unwrap();
 
                 '_test_block: {
-                    let uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                    let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
                         ctx_manager.clone(),
                     )
                     .await;
-                    if let Ok(_val) = uow.repository.get(&id).await {
+                    if let Ok(_val) = uow.repository().get(&id).await {
                         panic!("Shouldn't be able to fetch after rollback!!")
                     };
                 }
@@ -197,15 +199,15 @@ mod test_unit_of_work {
                 )
                 .await;
                 uow.begin().await.unwrap();
-                uow.repository.add(&mut boardaggregate).await.unwrap();
+                uow.repository().add(&mut boardaggregate).await.unwrap();
                 uow.commit().await.unwrap();
 
                 '_test_block: {
-                    let uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                    let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
                         ctx_manager.clone(),
                     )
                     .await;
-                    if let Err(err) = uow.repository.get(&id).await {
+                    if let Err(err) = uow.repository().get(&id).await {
                         panic!("Fetch Error!:{}", err)
                     };
                     let mut count = 0;

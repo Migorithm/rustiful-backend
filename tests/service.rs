@@ -30,7 +30,7 @@ pub mod service_tests {
                 state: BoardState::Published,
             };
 
-            let uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+            let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
                 context_manager.clone(),
             )
             .await;
@@ -40,7 +40,7 @@ pub mod service_tests {
                 }
                 Ok(id) => '_test: {
                     let id: String = id.try_into().unwrap();
-                    if let Err(err) = uow.repository.get(&id).await {
+                    if let Err(err) = uow.repository().get(&id).await {
                         panic!("Fetching newly created object failed! : {}", err);
                     };
                 }
@@ -65,7 +65,7 @@ pub mod service_tests {
                 uow.begin().await.unwrap();
 
                 let mut board_aggregate = board_create_helper(BoardState::Published);
-                id = uow.repository.add(&mut board_aggregate).await.unwrap();
+                id = uow.repository().add(&mut board_aggregate).await.unwrap();
                 assert_eq!(board_aggregate.board.id.to_string(), id);
                 uow.commit().await.unwrap();
             }
@@ -85,11 +85,12 @@ pub mod service_tests {
                         panic!("Service Handling Failed! {}", err)
                     }
                     Ok(_res) => {
-                        let uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
-                            context_manager.clone(),
-                        )
-                        .await;
-                        if let Ok(board_aggregate) = uow.repository.get(&id).await {
+                        let mut uow =
+                            UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                                context_manager.clone(),
+                            )
+                            .await;
+                        if let Ok(board_aggregate) = uow.repository().get(&id).await {
                             assert_eq!(
                                 board_aggregate.board.content,
                                 "Changed to this".to_string()
@@ -116,7 +117,7 @@ pub mod service_tests {
                 uow.begin().await.unwrap();
 
                 let mut board_aggregate = board_create_helper(BoardState::Published);
-                id = uow.repository.add(&mut board_aggregate).await.unwrap();
+                id = uow.repository().add(&mut board_aggregate).await.unwrap();
                 assert_eq!(board_aggregate.board.id.to_string(), id);
                 uow.commit().await.unwrap();
             }
@@ -130,11 +131,11 @@ pub mod service_tests {
                 ServiceHandler::add_comment(cmd, context_manager.clone())
                     .await
                     .unwrap();
-                let uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
                     context_manager.clone(),
                 )
                 .await;
-                if let Ok(board_aggregate) = uow.repository.get(&id).await {
+                if let Ok(board_aggregate) = uow.repository().get(&id).await {
                     assert_eq!(board_aggregate.comments.len(), 1);
                 };
             }
