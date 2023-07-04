@@ -36,11 +36,11 @@ mod test_outbox {
             }
             Ok(response) => '_test: {
                 let id: String = response.try_into().unwrap();
-                let uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
                     context_manager.clone(),
                 )
                 .await;
-                if let Err(err) = uow.repository.get(&id).await {
+                if let Err(err) = uow.repository().get(&id).await {
                     panic!("Fetching newly created object failed! : {}", err);
                 };
             }

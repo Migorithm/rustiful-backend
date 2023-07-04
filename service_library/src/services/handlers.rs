@@ -30,7 +30,8 @@ impl ServiceHandler {
             let builder = BoardAggregate::builder();
             let mut board_aggregate: BoardAggregate = builder.build();
             board_aggregate.create_board(cmd);
-            let res = uow.repository.add(&mut board_aggregate).await?;
+
+            let res = uow.repository().add(&mut board_aggregate).await?;
             uow.commit().await?;
             Ok(res.into())
         })
@@ -42,9 +43,9 @@ impl ServiceHandler {
                 UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(context.clone())
                     .await;
             uow.begin().await.unwrap();
-            let mut board_aggregate = uow.repository.get(&cmd.id.to_string()).await?;
+            let mut board_aggregate = uow.repository().get(&cmd.id.to_string()).await?;
             board_aggregate.update_board(cmd);
-            uow.repository.update(&mut board_aggregate).await?;
+            uow.repository().update(&mut board_aggregate).await?;
             uow.commit().await?;
 
             Ok(().into())
@@ -57,9 +58,9 @@ impl ServiceHandler {
                 UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(context.clone())
                     .await;
             uow.begin().await.unwrap();
-            let mut board_aggregate = uow.repository.get(&cmd.board_id.to_string()).await?;
+            let mut board_aggregate = uow.repository().get(&cmd.board_id.to_string()).await?;
             board_aggregate.add_comment(cmd);
-            uow.repository.update(&mut board_aggregate).await?;
+            uow.repository().update(&mut board_aggregate).await?;
             uow.commit().await?;
             Ok(().into())
         })
@@ -74,9 +75,9 @@ impl ServiceHandler {
                 UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(context.clone())
                     .await;
             uow.begin().await.unwrap();
-            let mut board_aggregate = uow.repository.get(&cmd.board_id.to_string()).await?;
+            let mut board_aggregate = uow.repository().get(&cmd.board_id.to_string()).await?;
             board_aggregate.edit_comment(cmd)?;
-            uow.repository.update(&mut board_aggregate).await?;
+            uow.repository().update(&mut board_aggregate).await?;
             uow.commit().await?;
             Ok(().into())
         })
