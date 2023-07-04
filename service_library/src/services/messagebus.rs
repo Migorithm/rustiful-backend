@@ -48,7 +48,7 @@ impl MessageBus {
             .get(&message.type_id())
             .ok_or_else(|| {
                 eprintln!("Unprocessable Command Given!");
-                ApplicationError::NotFound
+                ApplicationError::CommandNotFound
             })?(message.as_any(), context_manager.clone())
         .await?;
 

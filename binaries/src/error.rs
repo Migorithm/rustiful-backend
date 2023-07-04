@@ -19,22 +19,17 @@ impl IntoResponse for Exception {
             ApplicationError::DeserializationError(err) => {
                 (StatusCode::BAD_REQUEST, err.to_string())
             }
-            ApplicationError::InExecutableEvent => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                ApplicationError::InExecutableEvent.to_string(),
-            ),
+
             ApplicationError::InvalidURL => (
                 StatusCode::BAD_REQUEST,
                 ApplicationError::InvalidURL.to_string(),
             ),
-            ApplicationError::NotFound => (
-                StatusCode::NOT_FOUND,
-                ApplicationError::NotFound.to_string(),
-            ),
-            ApplicationError::EventNotFound => (
-                StatusCode::NOT_FOUND,
-                ApplicationError::EventNotFound.to_string(),
-            ),
+            command @ ApplicationError::EntityNotFound
+            | command @ ApplicationError::CommandNotFound
+            | command @ ApplicationError::EventNotFound => {
+                (StatusCode::NOT_FOUND, command.to_string())
+            }
+
             ApplicationError::TransactionError => (
                 StatusCode::BAD_GATEWAY,
                 ApplicationError::TransactionError.to_string(),
