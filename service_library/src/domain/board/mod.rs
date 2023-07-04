@@ -80,7 +80,7 @@ impl BoardAggregate {
             .comments
             .iter_mut()
             .find(|c| c.id == cmd.id)
-            .ok_or(ApplicationError::CommandNotFound)?;
+            .ok_or(ApplicationError::EntityNotFound)?;
         comment.content = cmd.content;
         Ok(())
     }
