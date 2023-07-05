@@ -2,25 +2,16 @@ mod entity;
 pub mod events;
 use std::{collections::VecDeque, mem};
 
+use crate::aggregate;
+
 use self::entity::{Account, TokenStat};
 
 use super::{
     builder::{Buildable, Builder},
     Aggregate, Message,
 };
-pub const DOMAINNAME: &str = "Auth";
 
-impl Aggregate for AuthAggregate {
-    fn events(&self) -> &VecDeque<Box<dyn Message>> {
-        &self.events
-    }
-    fn take_events(&mut self) -> VecDeque<Box<dyn Message>> {
-        mem::take(&mut self.events)
-    }
-    fn raise_event(&mut self, event: Box<dyn Message>) {
-        self.events.push_back(event)
-    }
-}
+aggregate!(AuthAggregate);
 
 #[derive(Default)]
 pub struct AuthAggregate {
@@ -38,17 +29,6 @@ impl AuthAggregateBuilder {
     }
     pub fn take_token_stat(mut self, token_stat: TokenStat) -> Self {
         self.0.token_stat = token_stat;
-        self
-    }
-}
-
-impl AsRef<AuthAggregate> for AuthAggregate {
-    fn as_ref(&self) -> &AuthAggregate {
-        self
-    }
-}
-impl AsMut<AuthAggregate> for AuthAggregate {
-    fn as_mut(&mut self) -> &mut AuthAggregate {
         self
     }
 }

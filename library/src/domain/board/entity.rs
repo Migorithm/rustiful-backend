@@ -1,7 +1,6 @@
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::domain::State;
 use serde::{Deserialize, Serialize};
 use sqlx;
 
@@ -16,15 +15,6 @@ pub enum BoardState {
 impl Default for BoardState {
     fn default() -> Self {
         Self::Unpublished
-    }
-}
-impl State for BoardState {
-    fn state(&self) -> &str {
-        match self {
-            Self::Unpublished => "Unpublished",
-            Self::Published => "Published",
-            Self::Deleted => "Deleted",
-        }
     }
 }
 
@@ -56,9 +46,6 @@ impl Board {
             version: 0,
         }
     }
-    pub fn state(&self) -> &str {
-        self.state.state()
-    }
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Default)]
@@ -82,9 +69,6 @@ impl Comment {
             create_dt: Utc::now(),
         }
     }
-    pub fn state(&self) -> &str {
-        self.state.state()
-    }
 }
 
 #[derive(
@@ -97,15 +81,4 @@ pub enum CommentState {
     Deleted,
     Pending,
     UpdatePending,
-}
-
-impl State for CommentState {
-    fn state(&self) -> &str {
-        match self {
-            Self::Created => "Created",
-            Self::Deleted => "Deleted",
-            Self::Pending => "Pending",
-            Self::UpdatePending => "UpdatePending",
-        }
-    }
 }

@@ -9,7 +9,7 @@ use axum::{
 };
 use routes::board_routers;
 
-use service_library::{bootstrap::Boostrap, domain::board::commands::*};
+use library::{bootstrap::Boostrap, domain::board::commands::*};
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};

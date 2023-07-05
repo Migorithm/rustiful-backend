@@ -1,6 +1,6 @@
 use axum::{http::StatusCode, response::IntoResponse, Json};
+use library::{domain::commands::ServiceResponse, utils::ApplicationError};
 use serde_json::json;
-use service_library::{domain::commands::ServiceResponse, utils::ApplicationError};
 
 pub struct Exception(pub ApplicationError);
 

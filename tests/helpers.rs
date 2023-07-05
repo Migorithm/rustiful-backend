@@ -4,15 +4,15 @@ pub mod functions {
     use std::sync::Arc;
 
     use futures::Future;
-    use service_library::adapters::database::Executor;
-    use service_library::adapters::repositories::{Repository, TRepository};
+    use library::adapters::database::Executor;
+    use library::adapters::repositories::{Repository, TRepository};
 
     use dotenv::dotenv;
-    use service_library::bootstrap::connection_pool;
-    use service_library::domain::board::entity::{Board, BoardState};
+    use library::bootstrap::connection_pool;
+    use library::domain::board::entity::{Board, BoardState};
 
-    use service_library::domain::board::BoardAggregate;
-    use service_library::domain::builder::{Buildable, Builder};
+    use library::domain::board::BoardAggregate;
+    use library::domain::builder::{Buildable, Builder};
 
     use tokio::sync::RwLock;
     use uuid::Uuid;

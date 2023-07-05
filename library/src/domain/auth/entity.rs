@@ -1,8 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::domain::State;
-
 #[derive(Eq, PartialEq, Serialize, Deserialize, Clone, Hash, sqlx::Type, Debug)]
 #[sqlx(type_name = "board_state")]
 pub enum AccountState {
@@ -15,16 +13,6 @@ pub enum AccountState {
 impl Default for AccountState {
     fn default() -> Self {
         Self::VerificationRequired
-    }
-}
-impl State for AccountState {
-    fn state(&self) -> &str {
-        match self {
-            Self::VerificationRequired => "VerificationRequired",
-            Self::Created => "Created",
-            Self::Deleted => "Deleted",
-            Self::Blocked => "Blocked",
-        }
     }
 }
 

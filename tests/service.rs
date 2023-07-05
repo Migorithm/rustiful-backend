@@ -6,15 +6,15 @@ pub mod service_tests {
 
     use crate::helpers::functions::*;
 
-    use service_library::adapters::database::ContextManager;
-    use service_library::adapters::repositories::{Repository, TRepository};
+    use library::adapters::database::ContextManager;
+    use library::adapters::repositories::{Repository, TRepository};
 
-    use service_library::domain::board::commands::{AddComment, CreateBoard, EditBoard};
-    use service_library::domain::board::entity::BoardState;
-    use service_library::domain::board::BoardAggregate;
+    use library::domain::board::commands::{AddComment, CreateBoard, EditBoard};
+    use library::domain::board::entity::BoardState;
+    use library::domain::board::BoardAggregate;
 
-    use service_library::services::handlers::ServiceHandler;
-    use service_library::services::unit_of_work::UnitOfWork;
+    use library::services::handlers::ServiceHandler;
+    use library::services::unit_of_work::UnitOfWork;
 
     use uuid::Uuid;
 

@@ -6,7 +6,7 @@ pub mod database_tests {
     use std::sync::Arc;
 
     use crate::helpers::functions::*;
-    use service_library::{
+    use library::{
         adapters::{
             database::Executor,
             repositories::{Repository, TRepository},

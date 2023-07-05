@@ -197,15 +197,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "binaries"
+name = "bin"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "axum",
  "axum-macros",
+ "chrono",
  "dotenv",
+ "library",
  "serde",
  "serde_json",
- "service_library",
  "tokio",
  "tower",
  "tower-http",
@@ -812,6 +814,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4668fb0ea861c1df094127ac5f1da3409a82116a4ba74fca2e58ef927159bb3"
 
 [[package]]
+name = "library"
+version = "0.0.1"
+dependencies = [
+ "async-trait",
+ "bcrypt",
+ "chrono",
+ "dotenv",
+ "downcast-rs",
+ "futures",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "time 0.3.22",
+ "tokio",
+ "utoipa",
+ "uuid",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1231,10 +1252,12 @@ dependencies = [
  "axum",
  "axum-macros",
  "bcrypt",
+ "bin",
  "chrono",
  "dotenv",
  "downcast-rs",
  "futures",
+ "library",
  "serde",
  "serde_json",
  "sqlx",
@@ -1357,25 +1380,6 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
-]
-
-[[package]]
-name = "service_library"
-version = "0.0.1"
-dependencies = [
- "async-trait",
- "bcrypt",
- "chrono",
- "dotenv",
- "downcast-rs",
- "futures",
- "serde",
- "serde_json",
- "sqlx",
- "time 0.3.22",
- "tokio",
- "utoipa",
- "uuid",
 ]
 
 [[package]]
