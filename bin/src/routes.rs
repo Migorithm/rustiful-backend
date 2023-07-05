@@ -3,11 +3,11 @@ use std::sync::Arc;
 use axum::routing::post;
 use axum::Router;
 use axum::{extract::State, Json};
-use service_library::domain::commands::ServiceResponse;
+use library::domain::commands::ServiceResponse;
 
 use crate::error::{Exception, WebResponse};
-use service_library::domain::board::commands::*;
-use service_library::services::messagebus::MessageBus;
+use library::domain::board::commands::*;
+use library::services::messagebus::MessageBus;
 
 #[utoipa::path( post,  path = "/boards", request_body=CreateBoard)]
 #[axum_macros::debug_handler]

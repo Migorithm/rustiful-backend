@@ -3,16 +3,16 @@ mod helpers;
 #[cfg(test)]
 mod repository_tests {
     use crate::helpers::functions::*;
-    use service_library::adapters::database::ContextManager;
-    use service_library::adapters::repositories::TRepository;
+    use library::adapters::database::ContextManager;
+    use library::adapters::repositories::TRepository;
 
     use std::str::FromStr;
 
-    use service_library::domain::board::commands::EditBoard;
-    use service_library::domain::board::entity::{BoardState, Comment};
+    use library::domain::board::commands::EditBoard;
+    use library::domain::board::entity::{BoardState, Comment};
 
-    use service_library::domain::board::BoardAggregate;
-    use service_library::domain::builder::{Buildable, Builder};
+    use library::domain::board::BoardAggregate;
+    use library::domain::builder::{Buildable, Builder};
 
     use uuid::Uuid;
 

@@ -4,16 +4,16 @@ mod helpers;
 mod test_outbox {
     use crate::helpers::functions::*;
     use core::panic;
-    use service_library::adapters::repositories::Repository;
-    use service_library::bootstrap::Boostrap;
-    use service_library::domain::board::commands::CreateBoard;
-    use service_library::domain::board::events::BoardCreated;
-    use service_library::domain::board::BoardAggregate;
-    use service_library::services::handlers::ServiceHandler;
+    use library::adapters::repositories::Repository;
+    use library::bootstrap::Boostrap;
+    use library::domain::board::commands::CreateBoard;
+    use library::domain::board::events::BoardCreated;
+    use library::domain::board::BoardAggregate;
+    use library::services::handlers::ServiceHandler;
 
     use uuid::Uuid;
 
-    use service_library::{
+    use library::{
         adapters::{database::ContextManager, outbox::Outbox, repositories::TRepository},
         domain::board::entity::BoardState,
         services::unit_of_work::UnitOfWork,
