@@ -45,7 +45,7 @@ impl Debug for dyn Message {
 
 #[macro_export]
 macro_rules! message {
-    ($event:ty ) => {
+    ($event:ty $(, $v1:ident $(, $v2:ident)? )? ) => {
         impl Message for $event {
             fn metadata(&self) -> MessageMetadata {
                 MessageMetadata {
@@ -59,47 +59,15 @@ macro_rules! message {
             fn state(&self) -> String {
                 serde_json::to_string(&self).expect("Failed to serialize")
             }
-        }
-    };
-    ($event:ty , $v1:ident) => {
-        impl Message for $event {
-            fn metadata(&self) -> MessageMetadata {
-                MessageMetadata {
-                    aggregate_id: self.id.to_string(),
-                    topic: stringify!($event).into(),
-                }
-            }
-            fn message_clone(&self) -> Box<dyn Message> {
-                Box::new(self.clone())
-            }
-            fn state(&self) -> String {
-                serde_json::to_string(&self).expect("Failed to serialize")
-            }
-            fn $v1ly_notifiable(&self) -> bool {
+            $(fn $v1(&self) -> bool {
                 true
             }
-        }
-    };
-    ($event:ty , $v1:ident, $v2:ident) => {
-        impl Message for $event {
-            fn metadata(&self) -> MessageMetadata {
-                MessageMetadata {
-                    aggregate_id: self.id.to_string(),
-                    topic: stringify!($event).into(),
-                }
-            }
-            fn message_clone(&self) -> Box<dyn Message> {
-                Box::new(self.clone())
-            }
-            fn state(&self) -> String {
-                serde_json::to_string(&self).expect("Failed to serialize")
-            }
-            fn $v1(&self) -> bool {
+            $(fn $v2(&self) -> bool {
                 true
-            }
-            fn $v2(&self) -> bool {
-                true
-            }
+            })?
+        )?
+
+
         }
     };
 }
