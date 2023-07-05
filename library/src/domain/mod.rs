@@ -43,6 +43,67 @@ impl Debug for dyn Message {
     }
 }
 
+#[macro_export]
+macro_rules! message {
+    ($event:ty ) => {
+        impl Message for $event {
+            fn metadata(&self) -> MessageMetadata {
+                MessageMetadata {
+                    aggregate_id: self.id.to_string(),
+                    topic: stringify!($event).into(),
+                }
+            }
+            fn message_clone(&self) -> Box<dyn Message> {
+                Box::new(self.clone())
+            }
+            fn state(&self) -> String {
+                serde_json::to_string(&self).expect("Failed to serialize")
+            }
+        }
+    };
+    ($event:ty , $v1:ident) => {
+        impl Message for $event {
+            fn metadata(&self) -> MessageMetadata {
+                MessageMetadata {
+                    aggregate_id: self.id.to_string(),
+                    topic: stringify!($event).into(),
+                }
+            }
+            fn message_clone(&self) -> Box<dyn Message> {
+                Box::new(self.clone())
+            }
+            fn state(&self) -> String {
+                serde_json::to_string(&self).expect("Failed to serialize")
+            }
+            fn $v1ly_notifiable(&self) -> bool {
+                true
+            }
+        }
+    };
+    ($event:ty , $v1:ident, $v2:ident) => {
+        impl Message for $event {
+            fn metadata(&self) -> MessageMetadata {
+                MessageMetadata {
+                    aggregate_id: self.id.to_string(),
+                    topic: stringify!($event).into(),
+                }
+            }
+            fn message_clone(&self) -> Box<dyn Message> {
+                Box::new(self.clone())
+            }
+            fn state(&self) -> String {
+                serde_json::to_string(&self).expect("Failed to serialize")
+            }
+            fn $v1(&self) -> bool {
+                true
+            }
+            fn $v2(&self) -> bool {
+                true
+            }
+        }
+    };
+}
+
 pub struct MessageMetadata {
     pub(crate) aggregate_id: String,
     pub(crate) topic: String,
@@ -62,6 +123,30 @@ pub trait Aggregate: Send + Sync {
     fn raise_event(&mut self, event: Box<dyn Message>);
 }
 
-trait State {
-    fn state(&self) -> &str;
+#[macro_export]
+macro_rules! aggregate {
+    ($aggregate:ty) => {
+        impl Aggregate for $aggregate {
+            fn events(&self) -> &VecDeque<Box<dyn Message>> {
+                &self.events
+            }
+            fn take_events(&mut self) -> VecDeque<Box<dyn Message>> {
+                mem::take(&mut self.events)
+            }
+            fn raise_event(&mut self, event: Box<dyn Message>) {
+                self.events.push_back(event)
+            }
+        }
+
+        impl AsRef<$aggregate> for $aggregate {
+            fn as_ref(&self) -> &$aggregate {
+                self
+            }
+        }
+        impl AsMut<$aggregate> for $aggregate {
+            fn as_mut(&mut self) -> &mut $aggregate {
+                self
+            }
+        }
+    };
 }

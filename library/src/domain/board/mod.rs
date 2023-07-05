@@ -3,6 +3,7 @@ pub mod entity;
 pub mod events;
 use std::{collections::VecDeque, mem};
 
+use crate::aggregate;
 use crate::utils::{ApplicationError, ApplicationResult};
 
 use self::commands::{AddComment, CreateBoard, EditBoard, EditComment};
@@ -12,18 +13,6 @@ use self::events::{BoardCommentAdded, BoardCreated, BoardUpdated};
 use super::builder::{Buildable, Builder};
 
 use super::{Aggregate, Message};
-
-impl Aggregate for BoardAggregate {
-    fn events(&self) -> &VecDeque<Box<dyn Message>> {
-        &self.events
-    }
-    fn take_events(&mut self) -> VecDeque<Box<dyn Message>> {
-        mem::take(&mut self.events)
-    }
-    fn raise_event(&mut self, event: Box<dyn Message>) {
-        self.events.push_back(event)
-    }
-}
 
 #[derive(Default)]
 pub struct BoardAggregate {
@@ -86,16 +75,7 @@ impl BoardAggregate {
     }
 }
 
-impl AsRef<BoardAggregate> for BoardAggregate {
-    fn as_ref(&self) -> &BoardAggregate {
-        self
-    }
-}
-impl AsMut<BoardAggregate> for BoardAggregate {
-    fn as_mut(&mut self) -> &mut BoardAggregate {
-        self
-    }
-}
+aggregate!(BoardAggregate);
 
 pub struct BoardAggregateBuilder(BoardAggregate);
 
