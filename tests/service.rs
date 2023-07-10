@@ -7,7 +7,7 @@ pub mod service_tests {
     use crate::helpers::functions::*;
 
     use library::adapters::database::ContextManager;
-    use library::adapters::repositories::{Repository, TRepository};
+    use library::adapters::repositories::Repository;
 
     use library::domain::board::commands::{AddComment, CreateBoard, EditBoard};
     use library::domain::board::entity::BoardState;
@@ -30,10 +30,9 @@ pub mod service_tests {
                 state: BoardState::Published,
             };
 
-            let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
-                context_manager.clone(),
-            )
-            .await;
+            let mut uow = UnitOfWork::<Repository<BoardAggregate>>::new(context_manager.clone())
+                .await
+                .unwrap();
             match ServiceHandler::create_board(cmd, context_manager.clone()).await {
                 Err(err) => '_fail_case: {
                     panic!("Service Handling Failed! {}", err)
@@ -57,12 +56,10 @@ pub mod service_tests {
             let id: String;
 
             '_preparation_block: {
-                let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
-                    context_manager.clone(),
-                )
-                .await;
-
-                uow.begin().await.unwrap();
+                let mut uow =
+                    UnitOfWork::<Repository<BoardAggregate>>::new(context_manager.clone())
+                        .await
+                        .unwrap();
 
                 let mut board_aggregate = board_create_helper(BoardState::Published);
                 id = uow.repository().add(&mut board_aggregate).await.unwrap();
@@ -86,10 +83,9 @@ pub mod service_tests {
                     }
                     Ok(_res) => {
                         let mut uow =
-                            UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
-                                context_manager.clone(),
-                            )
-                            .await;
+                            UnitOfWork::<Repository<BoardAggregate>>::new(context_manager.clone())
+                                .await
+                                .unwrap();
                         if let Ok(board_aggregate) = uow.repository().get(&id).await {
                             assert_eq!(
                                 board_aggregate.board.content,
@@ -110,11 +106,10 @@ pub mod service_tests {
             let id: String;
 
             '_preparation_block: {
-                let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
-                    context_manager.clone(),
-                )
-                .await;
-                uow.begin().await.unwrap();
+                let mut uow =
+                    UnitOfWork::<Repository<BoardAggregate>>::new(context_manager.clone())
+                        .await
+                        .unwrap();
 
                 let mut board_aggregate = board_create_helper(BoardState::Published);
                 id = uow.repository().add(&mut board_aggregate).await.unwrap();
@@ -131,10 +126,10 @@ pub mod service_tests {
                 ServiceHandler::add_comment(cmd, context_manager.clone())
                     .await
                     .unwrap();
-                let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
-                    context_manager.clone(),
-                )
-                .await;
+                let mut uow =
+                    UnitOfWork::<Repository<BoardAggregate>>::new(context_manager.clone())
+                        .await
+                        .unwrap();
                 if let Ok(board_aggregate) = uow.repository().get(&id).await {
                     assert_eq!(board_aggregate.comments.len(), 1);
                 };

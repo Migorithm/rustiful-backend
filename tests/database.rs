@@ -7,10 +7,7 @@ pub mod database_tests {
 
     use crate::helpers::functions::*;
     use library::{
-        adapters::{
-            database::Executor,
-            repositories::{Repository, TRepository},
-        },
+        adapters::{database::Executor, repositories::Repository},
         bootstrap::connection_pool,
         domain::board::{entity::BoardState, BoardAggregate},
     };

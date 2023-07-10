@@ -18,7 +18,7 @@ use super::{Aggregate, Message};
 pub struct BoardAggregate {
     pub board: Board,                   // Root
     pub comments: Vec<Comment>,         // Entity
-    events: VecDeque<Box<dyn Message>>, //Event
+    pub events: VecDeque<Box<dyn Message>>, // Event
 }
 
 impl BoardAggregate {
