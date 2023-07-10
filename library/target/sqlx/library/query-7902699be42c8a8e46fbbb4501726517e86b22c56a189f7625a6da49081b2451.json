@@ -1,14 +1,14 @@
 {
-  "query": " \n                UPDATE service_outbox SET \n                processed =$1\n                WHERE id = $2\n            ",
+  "query": "UPDATE community_comment SET \n                    content =$1\n                WHERE id = $2",
   "describe": {
     "columns": [],
     "parameters": {
       "Left": [
-        "Bool",
+        "Text",
         "Uuid"
       ]
     },
     "nullable": []
   },
-  "hash": "6cc7d1d2c05a7712277c88ce23718464696d16ae8ef2581957e96138363ebfa4"
+  "hash": "cf7b57717d3b9ce1c60faa65e677080923896fa1faada1390603519dbe0266c3"
 }

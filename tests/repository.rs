@@ -4,7 +4,6 @@ mod helpers;
 mod repository_tests {
     use crate::helpers::functions::*;
     use library::adapters::database::ContextManager;
-    use library::adapters::repositories::TRepository;
 
     use std::str::FromStr;
 

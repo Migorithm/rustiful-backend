@@ -1,41 +1,32 @@
-use crate::adapters::database::Executor;
 
 use crate::domain::board::entity::{Board, BoardState, Comment, CommentState};
 
 use crate::domain::board::BoardAggregate;
-use crate::domain::{builder::*, Message};
+use crate::domain::{builder::*};
 
 use crate::utils::ApplicationError;
-use async_trait::async_trait;
-use tokio::sync::RwLock;
 
-use std::collections::VecDeque;
 
 use std::mem;
 use std::str::FromStr;
-use std::sync::Arc;
+
 
 use uuid::Uuid;
 
 use super::{Repository, TRepository};
 
-#[async_trait]
-impl TRepository<BoardAggregate> for Repository<BoardAggregate> {
-    fn new(executor: Arc<RwLock<Executor>>) -> Self {
-        Self {
-            executor,
-            _phantom: Default::default(),
-            events: Default::default(),
-        }
+
+impl Repository<BoardAggregate> {
+    pub async fn add(&mut self, aggregate: &mut BoardAggregate) -> Result<String, ApplicationError> {
+        self.set_events(mem::take(&mut aggregate.events));
+        self._add(aggregate).await
     }
-    fn get_events(&mut self) -> VecDeque<Box<dyn Message>> {
-        mem::take(&mut self.events)
-    }
-    fn set_events(&mut self, events: VecDeque<Box<dyn Message>>) {
-        self.events = events
+    pub async fn update(&mut self, aggregate: &mut BoardAggregate) -> Result<(), ApplicationError> {
+        self.set_events(mem::take(&mut aggregate.events));
+        self._update(aggregate).await
     }
 
-    async fn _add(&mut self, aggregate: &BoardAggregate) -> Result<String, ApplicationError> {
+    pub async fn _add(&mut self, aggregate: &BoardAggregate) -> Result<String, ApplicationError> {
         let board = &aggregate.board;
 
         sqlx::query_as!(
@@ -51,7 +42,7 @@ impl TRepository<BoardAggregate> for Repository<BoardAggregate> {
         Ok(board.id.to_string())
     }
 
-    async fn get(&self, _aggregate_id: &str) -> Result<BoardAggregate, ApplicationError> {
+    pub async fn get(&self, _aggregate_id: &str) -> Result<BoardAggregate, ApplicationError> {
         let uuidfied = Uuid::from_str(_aggregate_id).unwrap();
 
         let board = sqlx::query_as!(
@@ -108,7 +99,7 @@ impl TRepository<BoardAggregate> for Repository<BoardAggregate> {
         Ok(board_aggregate)
     }
 
-    async fn _update(&mut self, aggregate: &BoardAggregate) -> Result<(), ApplicationError> {
+    pub async fn _update(&mut self, aggregate: &BoardAggregate) -> Result<(), ApplicationError> {
         let board = &aggregate.board;
 
         let mut to_be_added_comment: Option<&Comment> = None;

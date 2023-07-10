@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+
 
 use std::sync::Arc;
 
@@ -6,33 +6,35 @@ use tokio::sync::RwLock;
 
 use crate::adapters::database::{AtomicContextManager, Executor};
 use crate::adapters::repositories::TRepository;
-use crate::domain::Aggregate;
+
 use crate::utils::ApplicationError;
 use crate::{adapters::outbox::Outbox, utils::ApplicationResult};
 
-pub struct UnitOfWork<R, A>
+pub struct UnitOfWork<R>
 where
-    R: TRepository<A>,
-    A: Aggregate + 'static,
+    R: TRepository,
+    
 {
     executor: Arc<RwLock<Executor>>,
     context: AtomicContextManager,
     pub repository: R,
-    _aggregate: PhantomData<A>,
+    
 }
-impl<R, A> UnitOfWork<R, A>
+impl<R> UnitOfWork<R>
 where
-    R: TRepository<A>,
-    A: Aggregate,
+    R: TRepository,
+    
 {
-    pub async fn new(context: AtomicContextManager) -> Self {
+    pub async fn new(context: AtomicContextManager) -> ApplicationResult<Self> {
         let executor = context.read().await.executor();
-        Self {
+        let mut uow = Self {
             repository: R::new(executor.clone()),
             context,
             executor,
-            _aggregate: PhantomData::<A>,
-        }
+            
+        };
+        uow.begin().await?;
+        Ok(uow)
     }
     pub fn repository(&mut self) -> &mut R {
         &mut self.repository
@@ -122,7 +124,7 @@ mod test_unit_of_work {
                     .build();
                 let id: String = boardaggregate.board.id.to_string();
 
-                let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                let mut uow = UnitOfWork::<Repository<BoardAggregate>>::new(
                     ctx_manager.clone(),
                 )
                 .await;
@@ -131,7 +133,7 @@ mod test_unit_of_work {
                 uow.commit().await.unwrap();
 
                 '_test_block: {
-                    let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                    let mut uow = UnitOfWork::<Repository<BoardAggregate>>::new(
                         ctx_manager.clone(),
                     )
                     .await;
@@ -152,7 +154,7 @@ mod test_unit_of_work {
                     ))
                     .build();
                 let id: String = boardaggregate.board.id.to_string();
-                let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                let mut uow = UnitOfWork::<Repository<BoardAggregate>>::new(
                     ctx_manager.clone(),
                 )
                 .await;
@@ -161,7 +163,7 @@ mod test_unit_of_work {
                 uow.rollback().await.unwrap();
 
                 '_test_block: {
-                    let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                    let mut uow = UnitOfWork::<Repository<BoardAggregate>>::new(
                         ctx_manager.clone(),
                     )
                     .await;
@@ -194,7 +196,7 @@ mod test_unit_of_work {
                 let id: String = boardaggregate.board.id.to_string();
 
                 // inject context
-                let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                let mut uow = UnitOfWork::<Repository<BoardAggregate>>::new(
                     ctx_manager.clone(),
                 )
                 .await;
@@ -203,7 +205,7 @@ mod test_unit_of_work {
                 uow.commit().await.unwrap();
 
                 '_test_block: {
-                    let mut uow = UnitOfWork::<Repository<BoardAggregate>, BoardAggregate>::new(
+                    let mut uow = UnitOfWork::<Repository<BoardAggregate>>::new(
                         ctx_manager.clone(),
                     )
                     .await;
