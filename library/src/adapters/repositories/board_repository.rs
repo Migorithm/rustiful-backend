@@ -2,14 +2,14 @@
 use crate::domain::board::entity::{Board, BoardState, Comment, CommentState};
 
 use crate::domain::board::BoardAggregate;
+
 use crate::domain::{builder::*};
 
 use crate::utils::ApplicationError;
 
-
 use std::mem;
-use std::str::FromStr;
 
+use std::str::FromStr;
 
 use uuid::Uuid;
 
@@ -31,11 +31,12 @@ impl Repository<BoardAggregate> {
 
         sqlx::query_as!(
             Board,
-            "INSERT INTO community_board (id, author, title, content, state) VALUES ($1, $2, $3, $4, $5) ",
+            "INSERT INTO community_board (id, author, title, content, tags,state) VALUES ($1, $2, $3, $4, $5,$6)",
             board.id,
             board.author,
             &board.title,
             &board.content,
+            &board.tags,
             board.state.clone() as BoardState,
         ).execute(self.executor.write().await.transaction()).await.map_err(|err| ApplicationError::DatabaseConnectionError(Box::new(err)))?;
 
@@ -55,6 +56,7 @@ impl Repository<BoardAggregate> {
                 content,
                 state AS "state: BoardState",
                 create_dt,
+                tags,
                 version
             FROM community_board
             WHERE id = $1

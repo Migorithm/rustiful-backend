@@ -27,6 +27,7 @@ pub struct Board {
     pub state: BoardState,
     pub create_dt: DateTime<Utc>,
     pub version: i32,
+    pub tags : Vec<String>,
 }
 
 impl Board {
@@ -35,6 +36,7 @@ impl Board {
         title: impl Into<String>,
         content: impl Into<String>,
         state: BoardState,
+        tags: Vec<String>,
     ) -> Self {
         Self {
             author,
@@ -44,6 +46,7 @@ impl Board {
             id: Uuid::new_v4(),
             create_dt: Utc::now(),
             version: 0,
+            tags,
         }
     }
 }

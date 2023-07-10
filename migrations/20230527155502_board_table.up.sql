@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS community_board(
     title TEXT NOT NULL,
     content TEXT NOT NULL,
     state board_state NOT NULL,
+    tags text[] NOT NULL,
     version INTEGER NOT NULL DEFAULT 0,
     create_dt TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
