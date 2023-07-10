@@ -23,7 +23,7 @@ pub struct BoardAggregate {
 
 impl BoardAggregate {
     pub fn create_board(&mut self, cmd: CreateBoard) {
-        self.board = Board::new(cmd.author, cmd.title, cmd.content, cmd.state);
+        self.board = Board::new(cmd.author, cmd.title, cmd.content ,cmd.state,Default::default());
         self.raise_event(Box::new(BoardCreated {
             id: self.board.id,
             author: self.board.author,
@@ -119,6 +119,7 @@ mod tests {
             "러스트를 배워야하는 이유",
             "졸잼임",
             BoardState::Published,
+            Default::default()
         );
         assert_eq!(board.state(), "Published");
 
@@ -127,6 +128,7 @@ mod tests {
             "러스트를 배워야하는 이유",
             "졸잼임",
             BoardState::Unpublished,
+            Default::default()
         );
         assert_eq!(board.state(), "Unpublished");
 
@@ -135,6 +137,7 @@ mod tests {
             "러스트를 배워야하는 이유",
             "졸잼임",
             BoardState::Deleted,
+            Default::default()
         );
         assert_eq!(board.state(), "Deleted");
     }

@@ -37,6 +37,7 @@ pub mod functions {
                 "Let's try it",
                 "Is this fun?",
                 state,
+                Default::default(),
             ))
             .build()
     }

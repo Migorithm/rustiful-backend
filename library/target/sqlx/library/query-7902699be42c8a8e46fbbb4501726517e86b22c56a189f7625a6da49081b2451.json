@@ -1,14 +1,74 @@
 {
-  "query": "UPDATE community_comment SET \n                    content =$1\n                WHERE id = $2",
+  "query": "\n            SELECT \n                id,\n                author,\n                title,\n                content,\n                state AS \"state: BoardState\",\n                create_dt,\n                tags,\n                version\n            FROM community_board\n            WHERE id = $1\n            ",
   "describe": {
-    "columns": [],
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "author",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "title",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "content",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "state: BoardState",
+        "type_info": {
+          "Custom": {
+            "name": "board_state",
+            "kind": {
+              "Enum": [
+                "Unpublished",
+                "Published",
+                "Deleted"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "create_dt",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "tags",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 7,
+        "name": "version",
+        "type_info": "Int4"
+      }
+    ],
     "parameters": {
       "Left": [
-        "Text",
         "Uuid"
       ]
     },
-    "nullable": []
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
   },
-  "hash": "cf7b57717d3b9ce1c60faa65e677080923896fa1faada1390603519dbe0266c3"
+  "hash": "286ac5b7eb732b44d913aacf2cc4a3d21c4a7538d3ff8d5d1ed43862da01379c"
 }
